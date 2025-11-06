@@ -1,29 +1,42 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Mindora App Colors - Mental Health Theme
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const primaryColor = '#9333EA';
+const secondaryColor = '#FFFFFF';
 
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    background: '#FFFFFF',
+    primary: primaryColor,
+    secondary: '#F3F4F6',
+    tint: primaryColor,
+    icon: '#6B7280',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: primaryColor,
+    card: '#FFFFFF',
+    border: '#E5E7EB',
+    success: '#10B981',
+    warning: '#F59E0B',
+    error: '#EF4444',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#FFFFFF',
+    background: '#111827',
+    primary: primaryColor,
+    secondary: '#1F2937',
+    tint: primaryColor,
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: primaryColor,
+    card: '#1F2937',
+    border: '#374151',
+    success: '#10B981',
+    warning: '#F59E0B',
+    error: '#EF4444',
   },
 };
 
