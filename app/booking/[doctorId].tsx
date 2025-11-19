@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { mockDoctors } from '@/constants/Data';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
+import { logActivity } from '@/utils/activityTracker';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
@@ -14,6 +16,7 @@ export default function BookingScreen() {
     const { doctorId } = useLocalSearchParams();
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { user, updateProfile } = useAuth();
 
     const doctor = mockDoctors.find(d => d.id === doctorId);
     const [selectedDate, setSelectedDate] = useState('');
@@ -45,6 +48,41 @@ export default function BookingScreen() {
         { id: 'in-person', name: 'In Person', icon: 'location', description: 'Visit the clinic in person' },
     ];
 
+    const confirmBooking = async () => {
+        try {
+            // Log activity
+            if (user) {
+                await logActivity(
+                    user.id,
+                    'appointment',
+                    'Appointment Booked',
+                    `Booked ${selectedType} session with ${doctor.name} on ${selectedDate} at ${selectedTime}`,
+                    'calendar-outline',
+                    '#3B82F6'
+                );
+
+                // Update user stats
+                await updateProfile({
+                    stats: {
+                        ...user.stats,
+                        sessions: user.stats.sessions + 1,
+                    }
+                });
+            }
+
+            Alert.alert('Success', 'Appointment booked successfully!', [
+                {
+                    text: 'View Appointments',
+                    onPress: () => router.push('/appointments')
+                },
+                { text: 'OK', onPress: () => router.back() }
+            ]);
+        } catch (error) {
+            console.error('Error booking appointment:', error);
+            Alert.alert('Error', 'Failed to book appointment. Please try again.');
+        }
+    };
+
     const handleBooking = () => {
         if (!selectedDate || !selectedTime) {
             Alert.alert('Error', 'Please select a date and time');
@@ -59,13 +97,8 @@ export default function BookingScreen() {
                 {
                     text: 'Confirm',
                     onPress: () => {
-                        Alert.alert('Success', 'Appointment booked successfully!', [
-                            {
-                                text: 'Join Video Call',
-                                onPress: () => router.push(`/video-call/appointment-${Date.now()}`)
-                            },
-                            { text: 'OK', onPress: () => router.back() }
-                        ]);
+                        // Call async function without await in Alert callback
+                        confirmBooking();
                     }
                 }
             ]

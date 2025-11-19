@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { mockCommunities, mockPosts } from '@/constants/Data';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
+import { logActivity } from '@/utils/activityTracker';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -13,27 +15,51 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function CommunityScreen() {
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { user } = useAuth();
     const [posts, setPosts] = useState(mockPosts);
 
-    const handleLike = (postId: string) => {
+    const handleLike = async (postId: string) => {
+        const post = posts.find(p => p.id === postId);
         setPosts(prevPosts =>
-            prevPosts.map(post =>
-                post.id === postId
+            prevPosts.map(p =>
+                p.id === postId
                     ? {
-                        ...post,
-                        isLiked: !post.isLiked,
-                        likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+                        ...p,
+                        isLiked: !p.isLiked,
+                        likes: p.isLiked ? p.likes - 1 : p.likes + 1,
                     }
-                    : post
+                    : p
             )
         );
+
+        if (user && post && !post.isLiked) {
+            await logActivity(
+                user.id,
+                'mood',
+                'Liked Post',
+                `Liked post by ${post.author}`,
+                'heart-outline',
+                '#EF4444'
+            );
+        }
     };
 
     const handleComment = (postId: string) => {
         Alert.alert('Comments', 'Comment feature would be implemented here');
     };
 
-    const handleJoinCommunity = (communityId: string) => {
+    const handleJoinCommunity = async (communityId: string) => {
+        const community = mockCommunities.find(c => c.id === communityId);
+        if (user && community) {
+            await logActivity(
+                user.id,
+                'session',
+                'Joined Community',
+                `Joined ${community.name}`,
+                'people-outline',
+                '#8B5CF6'
+            );
+        }
         Alert.alert('Success', 'You have joined the community!');
     };
 

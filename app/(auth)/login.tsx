@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
@@ -11,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function LoginScreen() {
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { login } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -23,11 +25,14 @@ export default function LoginScreen() {
         }
 
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            await login(email, password);
             router.replace('/(tabs)');
-        }, 1500);
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to login');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -80,6 +85,27 @@ export default function LoginScreen() {
                         variant="outline"
                         style={styles.socialButton}
                     />
+
+                    {/* Demo Account Info */}
+                    <View style={[styles.demoCard, { backgroundColor: colors.primary + '10', borderColor: colors.primary + '30' }]}>
+                        <View style={styles.demoHeader}>
+                            <Ionicons name="information-circle" size={20} color={colors.primary} />
+                            <Text style={[styles.demoTitle, { color: colors.primary }]}>Try Demo Account</Text>
+                        </View>
+                        <Text style={[styles.demoText, { color: colors.text }]}>
+                            Email: demo@mindora.com{'\n'}
+                            Password: demo123
+                        </Text>
+                        <Button
+                            title="Login with Demo Account"
+                            onPress={() => {
+                                setEmail('demo@mindora.com');
+                                setPassword('demo123');
+                            }}
+                            variant="outline"
+                            style={styles.demoButton}
+                        />
+                    </View>
                 </View>
 
                 <View style={styles.footer}>
@@ -155,5 +181,29 @@ const styles = StyleSheet.create({
     },
     link: {
         fontWeight: '600',
+    },
+    demoCard: {
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginTop: 16,
+    },
+    demoHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    demoTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginLeft: 6,
+    },
+    demoText: {
+        fontSize: 13,
+        marginBottom: 12,
+        fontFamily: 'monospace',
+    },
+    demoButton: {
+        marginTop: 4,
     },
 });

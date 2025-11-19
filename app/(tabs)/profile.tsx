@@ -2,7 +2,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Colors } from '@/constants/theme';
-import { currentUser } from '@/constants/UserData';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -13,6 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ProfileScreen() {
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { user, logout } = useAuth();
+
+    if (!user) {
+        return null;
+    }
 
     const menuItems = [
         {
@@ -22,10 +27,16 @@ export default function ProfileScreen() {
             onPress: () => router.push('/dashboard'),
         },
         {
+            icon: 'time-outline',
+            title: 'Activity Feed',
+            subtitle: 'View your recent activities',
+            onPress: () => router.push('/activity'),
+        },
+        {
             icon: 'person-outline',
             title: 'Edit Profile',
             subtitle: 'Update your personal information',
-            onPress: () => Alert.alert('Edit Profile', 'Profile editing would be implemented here'),
+            onPress: () => router.push('/edit-profile'),
         },
         {
             icon: 'calendar-outline',
@@ -68,7 +79,7 @@ export default function ProfileScreen() {
                 {
                     text: 'Logout',
                     style: 'destructive',
-                    onPress: () => router.replace('/(auth)/login')
+                    onPress: () => logout()
                 }
             ]
         );
@@ -90,14 +101,14 @@ export default function ProfileScreen() {
                     <Card>
                         <View style={styles.profileInfo}>
                             <Avatar
-                                source={currentUser.avatar}
-                                name={currentUser.name}
+                                source={user.avatar}
+                                name={user.name}
                                 size={80}
                             />
                             <View style={styles.userInfo}>
-                                <Text style={[styles.userName, { color: colors.text }]}>{currentUser.name}</Text>
-                                <Text style={[styles.userEmail, { color: colors.icon }]}>{currentUser.email}</Text>
-                                <Text style={[styles.memberSince, { color: colors.icon }]}>Member since {currentUser.memberSince}</Text>
+                                <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
+                                <Text style={[styles.userEmail, { color: colors.icon }]}>{user.email}</Text>
+                                <Text style={[styles.memberSince, { color: colors.icon }]}>Member since {user.memberSince}</Text>
                             </View>
                         </View>
                     </Card>
@@ -109,15 +120,15 @@ export default function ProfileScreen() {
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Progress</Text>
                         <View style={styles.statsContainer}>
                             <View style={styles.stat}>
-                                <Text style={[styles.statNumber, { color: colors.primary }]}>{currentUser.stats.sessions}</Text>
+                                <Text style={[styles.statNumber, { color: colors.primary }]}>{user.stats.sessions}</Text>
                                 <Text style={[styles.statLabel, { color: colors.icon }]}>Sessions</Text>
                             </View>
                             <View style={styles.stat}>
-                                <Text style={[styles.statNumber, { color: colors.success }]}>{currentUser.stats.exercises}</Text>
+                                <Text style={[styles.statNumber, { color: colors.success }]}>{user.stats.exercises}</Text>
                                 <Text style={[styles.statLabel, { color: colors.icon }]}>Exercises</Text>
                             </View>
                             <View style={styles.stat}>
-                                <Text style={[styles.statNumber, { color: colors.warning }]}>{currentUser.stats.dayStreak}</Text>
+                                <Text style={[styles.statNumber, { color: colors.warning }]}>{user.stats.dayStreak}</Text>
                                 <Text style={[styles.statLabel, { color: colors.icon }]}>Day Streak</Text>
                             </View>
                         </View>

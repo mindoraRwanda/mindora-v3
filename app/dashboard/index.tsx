@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -11,6 +12,7 @@ const screenWidth = Dimensions.get('window').width;
 export default function DashboardScreen() {
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { user } = useAuth();
     const [selectedPeriod, setSelectedPeriod] = useState('week');
 
     // Mock data for charts
@@ -28,36 +30,36 @@ export default function DashboardScreen() {
 
     const progressMetrics = [
         {
-            title: 'Mood Improvement',
-            value: '23%',
-            change: '+5%',
-            icon: 'happy-outline',
-            color: colors.success,
-            description: 'Average mood score increased'
-        },
-        {
-            title: 'Session Attendance',
-            value: '92%',
-            change: '+8%',
+            title: 'Total Sessions',
+            value: user?.stats.sessions.toString() || '0',
+            change: '+' + Math.floor((user?.stats.sessions || 0) / 5),
             icon: 'calendar-outline',
             color: colors.primary,
-            description: 'Appointments attended on time'
+            description: 'Therapy sessions completed'
         },
         {
-            title: 'Exercise Completion',
-            value: '78%',
-            change: '+12%',
+            title: 'Exercises Done',
+            value: user?.stats.exercises.toString() || '0',
+            change: '+' + Math.floor((user?.stats.exercises || 0) / 10),
             icon: 'fitness-outline',
-            color: colors.warning,
+            color: colors.success,
             description: 'Mindfulness exercises completed'
         },
         {
-            title: 'Sleep Quality',
-            value: '7.2/10',
-            change: '+0.8',
-            icon: 'moon-outline',
+            title: 'Day Streak',
+            value: user?.stats.dayStreak.toString() || '0',
+            change: 'Active',
+            icon: 'flame-outline',
+            color: colors.warning,
+            description: 'Consecutive days of activity'
+        },
+        {
+            title: 'Completion Rate',
+            value: '92%',
+            change: '+8%',
+            icon: 'checkmark-circle-outline',
             color: colors.info || colors.primary,
-            description: 'Average sleep quality rating'
+            description: 'Overall completion rate'
         }
     ];
 
@@ -186,7 +188,7 @@ export default function DashboardScreen() {
                     <View>
                         <Text style={[styles.title, { color: colors.text }]}>Your Progress</Text>
                         <Text style={[styles.subtitle, { color: colors.icon }]}>
-                            Mental health journey insights
+                            {user?.name.split(' ')[0]}'s mental health journey
                         </Text>
                     </View>
                     <TouchableOpacity onPress={() => router.back()}>
@@ -327,13 +329,13 @@ export default function DashboardScreen() {
                     <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
                         <View style={styles.goalHeader}>
                             <Text style={[styles.goalTitle, { color: colors.text }]}>Weekly Mindfulness</Text>
-                            <Text style={[styles.goalProgress, { color: colors.primary }]}>5/7 days</Text>
+                            <Text style={[styles.goalProgress, { color: colors.primary }]}>{user?.stats.dayStreak || 0}/7 days</Text>
                         </View>
                         <View style={[styles.progressBar, { backgroundColor: colors.secondary }]}>
                             <View
                                 style={[
                                     styles.progressFill,
-                                    { backgroundColor: colors.primary, width: '71%' }
+                                    { backgroundColor: colors.primary, width: `${Math.min(((user?.stats.dayStreak || 0) / 7) * 100, 100)}%` }
                                 ]}
                             />
                         </View>
@@ -344,19 +346,19 @@ export default function DashboardScreen() {
 
                     <View style={[styles.goalCard, { backgroundColor: colors.card }]}>
                         <View style={styles.goalHeader}>
-                            <Text style={[styles.goalTitle, { color: colors.text }]}>Mood Stability</Text>
-                            <Text style={[styles.goalProgress, { color: colors.success }]}>On Track</Text>
+                            <Text style={[styles.goalTitle, { color: colors.text }]}>Session Goal</Text>
+                            <Text style={[styles.goalProgress, { color: colors.success }]}>{user?.stats.sessions || 0}/20</Text>
                         </View>
                         <View style={[styles.progressBar, { backgroundColor: colors.secondary }]}>
                             <View
                                 style={[
                                     styles.progressFill,
-                                    { backgroundColor: colors.success, width: '85%' }
+                                    { backgroundColor: colors.success, width: `${Math.min(((user?.stats.sessions || 0) / 20) * 100, 100)}%` }
                                 ]}
                             />
                         </View>
                         <Text style={[styles.goalDescription, { color: colors.icon }]}>
-                            Maintain consistent mood ratings above 3
+                            Complete 20 therapy sessions this quarter
                         </Text>
                     </View>
                 </View>

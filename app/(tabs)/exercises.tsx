@@ -2,7 +2,9 @@ import { ExerciseCard } from '@/components/ExerciseCard';
 import { Card } from '@/components/ui/Card';
 import { mockExercises } from '@/constants/Data';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
+import { logActivity } from '@/utils/activityTracker';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -12,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ExercisesScreen() {
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { user } = useAuth();
     const [selectedCategory, setSelectedCategory] = useState('all');
 
     const categories = [
@@ -26,7 +29,18 @@ export default function ExercisesScreen() {
         ? mockExercises
         : mockExercises.filter(exercise => exercise.category === selectedCategory);
 
-    const handleStartExercise = (exerciseId: string) => {
+    const handleStartExercise = async (exerciseId: string) => {
+        const exercise = mockExercises.find(e => e.id === exerciseId);
+        if (user && exercise) {
+            await logActivity(
+                user.id,
+                'exercise',
+                'Started Exercise',
+                `Started ${exercise.title} - ${exercise.duration}`,
+                'fitness-outline',
+                '#10B981'
+            );
+        }
         router.push(`/exercise-session/${exerciseId}`);
     };
 
@@ -46,26 +60,26 @@ export default function ExercisesScreen() {
                     <Card style={[styles.progressCard, { backgroundColor: colors.primary + '10' }]}>
                         <View style={styles.progressHeader}>
                             <View>
-                                <Text style={[styles.progressTitle, { color: colors.text }]}>Today's Progress</Text>
+                                <Text style={[styles.progressTitle, { color: colors.text }]}>Your Progress</Text>
                                 <Text style={[styles.progressSubtitle, { color: colors.icon }]}>
-                                    Keep up the great work!
+                                    Keep up the great work, {user?.name.split(' ')[0]}!
                                 </Text>
                             </View>
                             <View style={[styles.progressCircle, { borderColor: colors.primary }]}>
-                                <Text style={[styles.progressText, { color: colors.primary }]}>3/5</Text>
+                                <Text style={[styles.progressText, { color: colors.primary }]}>{user?.stats.exercises || 0}</Text>
                             </View>
                         </View>
                         <View style={styles.progressStats}>
                             <View style={styles.stat}>
-                                <Text style={[styles.statNumber, { color: colors.text }]}>25</Text>
+                                <Text style={[styles.statNumber, { color: colors.text }]}>{(user?.stats.exercises || 0) * 8}</Text>
                                 <Text style={[styles.statLabel, { color: colors.icon }]}>Minutes</Text>
                             </View>
                             <View style={styles.stat}>
-                                <Text style={[styles.statNumber, { color: colors.text }]}>3</Text>
+                                <Text style={[styles.statNumber, { color: colors.text }]}>{user?.stats.exercises || 0}</Text>
                                 <Text style={[styles.statLabel, { color: colors.icon }]}>Exercises</Text>
                             </View>
                             <View style={styles.stat}>
-                                <Text style={[styles.statNumber, { color: colors.text }]}>7</Text>
+                                <Text style={[styles.statNumber, { color: colors.text }]}>{user?.stats.dayStreak || 0}</Text>
                                 <Text style={[styles.statLabel, { color: colors.icon }]}>Day Streak</Text>
                             </View>
                         </View>

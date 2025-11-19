@@ -91,7 +91,7 @@ export const mockExercises: Exercise[] = [
     {
         id: '1',
         title: 'Deep Breathing',
-        description: 'A simple breathing exercise to reduce stress and anxiety',
+        description: 'A simple breathing exercise to reduce stress and anxiety. Focus on slow, controlled breaths.',
         duration: 5,
         category: 'breathing',
         difficulty: 'beginner',
@@ -100,7 +100,7 @@ export const mockExercises: Exercise[] = [
     {
         id: '2',
         title: 'Mindful Meditation',
-        description: 'Practice mindfulness to improve focus and reduce stress',
+        description: 'Practice mindfulness to improve focus and reduce stress. Observe your thoughts without judgment.',
         duration: 10,
         category: 'meditation',
         difficulty: 'intermediate',
@@ -109,7 +109,7 @@ export const mockExercises: Exercise[] = [
     {
         id: '3',
         title: 'Progressive Relaxation',
-        description: 'Systematic muscle relaxation technique',
+        description: 'Systematic muscle relaxation technique. Tense and release each muscle group for deep relaxation.',
         duration: 15,
         category: 'relaxation',
         difficulty: 'beginner',
@@ -118,11 +118,47 @@ export const mockExercises: Exercise[] = [
     {
         id: '4',
         title: 'Body Scan',
-        description: 'Mindfulness practice focusing on body awareness',
+        description: 'Mindfulness practice focusing on body awareness. Notice sensations throughout your entire body.',
         duration: 20,
         category: 'mindfulness',
         difficulty: 'advanced',
         image: 'https://images.unsplash.com/photo-1588286840104-8957b019727f?w=300&h=200&fit=crop'
+    },
+    {
+        id: '5',
+        title: 'Box Breathing',
+        description: 'Navy SEAL breathing technique for stress relief. Equal counts for inhale, hold, exhale, hold.',
+        duration: 5,
+        category: 'breathing',
+        difficulty: 'beginner',
+        image: 'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=300&h=200&fit=crop'
+    },
+    {
+        id: '6',
+        title: 'Loving-Kindness Meditation',
+        description: 'Cultivate compassion for yourself and others. Send positive wishes to yourself and loved ones.',
+        duration: 15,
+        category: 'meditation',
+        difficulty: 'intermediate',
+        image: 'https://images.unsplash.com/photo-1528715471579-d1bcf0ba5e83?w=300&h=200&fit=crop'
+    },
+    {
+        id: '7',
+        title: '5-4-3-2-1 Grounding',
+        description: 'Grounding technique using your five senses. Helps with anxiety and panic attacks.',
+        duration: 10,
+        category: 'mindfulness',
+        difficulty: 'beginner',
+        image: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=300&h=200&fit=crop'
+    },
+    {
+        id: '8',
+        title: 'Guided Visualization',
+        description: 'Imagine a peaceful place to promote relaxation. Use all your senses to create a calming scene.',
+        duration: 12,
+        category: 'relaxation',
+        difficulty: 'intermediate',
+        image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&h=200&fit=crop'
     }
 ];
 

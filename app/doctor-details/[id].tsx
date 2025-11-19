@@ -3,30 +3,110 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { mockDoctors } from '@/constants/Data';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DoctorDetailsScreen() {
-    const { id } = useLocalSearchParams();
+    const params = useLocalSearchParams();
+    const doctorId = Array.isArray(params.id) ? params.id[0] : params.id;
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { user } = useAuth();
+    const [isFavorite, setIsFavorite] = useState(false);
 
-    const doctor = mockDoctors.find(d => d.id === id);
+    const doctor = mockDoctors.find(d => d.id === doctorId);
+
+    useEffect(() => {
+        // Log activity when viewing doctor profile
+        if (user && doctor) {
+            logActivity(
+                user.id,
+                'session',
+                'Viewed Doctor Profile',
+                `Viewed ${doctor.name} - ${doctor.specialty}`,
+                'eye-outline',
+                '#6B7280'
+            );
+        }
+    }, [user, doctor]);
 
     if (!doctor) {
         return (
             <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-                <Text>Doctor not found</Text>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()}>
+                        <Ionicons name="arrow-back" size={24} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Doctor Not Found</Text>
+                    <View style={{ width: 24 }} />
+                </View>
+                <View style={styles.notFoundContainer}>
+                    <Ionicons name="medical-outline" size={64} color={colors.icon} />
+                    <Text style={[styles.notFoundTitle, { color: colors.text }]}>Doctor Not Found</Text>
+                    <Text style={[styles.notFoundText, { color: colors.icon }]}>
+                        The doctor you're looking for doesn't exist.
+                    </Text>
+                    <Button
+                        title="Browse Doctors"
+                        onPress={() => router.push('/(tabs)/doctors')}
+                        style={styles.browseButton}
+                    />
+                </View>
             </SafeAreaView>
         );
     }
 
-    const handleBookAppointment = () => {
+    const handleBookAppointment = async () => {
+        try {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (error) {
+            // Haptics not available
+        }
         router.push(`/booking/${doctor.id}`);
+    };
+
+    const handleFavorite = async () => {
+        try {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (error) {
+            // Haptics not available
+        }
+
+        setIsFavorite(!isFavorite);
+
+        if (!isFavorite && user) {
+            await logActivity(
+                user.id,
+                'session',
+                'Added to Favorites',
+                `Added ${doctor.name} to favorites`,
+                'heart',
+                '#EF4444'
+            );
+            Alert.alert('Added to Favorites', `${doctor.name} has been added to your favorites.`);
+        } else {
+            Alert.alert('Removed from Favorites', `${doctor.name} has been removed from your favorites.`);
+        }
+    };
+
+    const handleCall = () => {
+        Alert.alert(
+            'Call Doctor',
+            `Would you like to call ${doctor.name}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Call', onPress: () => Alert.alert('Calling', 'Phone call feature would be implemented here') }
+            ]
+        );
+    };
+
+    const handleMessage = () => {
+        Alert.alert('Message', 'Messaging feature would be implemented here');
     };
 
     return (
@@ -38,8 +118,12 @@ export default function DoctorDetailsScreen() {
                         <Ionicons name="arrow-back" size={24} color={colors.text} />
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: colors.text }]}>Doctor Details</Text>
-                    <TouchableOpacity>
-                        <Ionicons name="heart-outline" size={24} color={colors.icon} />
+                    <TouchableOpacity onPress={handleFavorite}>
+                        <Ionicons
+                            name={isFavorite ? "heart" : "heart-outline"}
+                            size={24}
+                            color={isFavorite ? colors.error : colors.icon}
+                        />
                     </TouchableOpacity>
                 </View>
 
@@ -73,6 +157,62 @@ export default function DoctorDetailsScreen() {
                             </View>
                         </View>
                     </Card>
+                </View>
+
+                {/* Quick Actions */}
+                <View style={styles.section}>
+                    <View style={styles.quickActions}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                            onPress={handleCall}
+                        >
+                            <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
+                                <Ionicons name="call" size={20} color={colors.success} />
+                            </View>
+                            <Text style={[styles.actionText, { color: colors.text }]}>Call</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                            onPress={handleMessage}
+                        >
+                            <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                                <Ionicons name="chatbubble" size={20} color={colors.primary} />
+                            </View>
+                            <Text style={[styles.actionText, { color: colors.text }]}>Message</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                            onPress={() => router.push('/(tabs)/doctors')}
+                        >
+                            <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
+                                <Ionicons name="people" size={20} color={colors.warning} />
+                            </View>
+                            <Text style={[styles.actionText, { color: colors.text }]}>Browse</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Stats */}
+                <View style={styles.section}>
+                    <View style={styles.statsContainer}>
+                        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <Ionicons name="people" size={24} color={colors.primary} />
+                            <Text style={[styles.statNumber, { color: colors.text }]}>500+</Text>
+                            <Text style={[styles.statLabel, { color: colors.icon }]}>Patients</Text>
+                        </View>
+                        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <Ionicons name="star" size={24} color={colors.warning} />
+                            <Text style={[styles.statNumber, { color: colors.text }]}>{doctor.rating}</Text>
+                            <Text style={[styles.statLabel, { color: colors.icon }]}>Rating</Text>
+                        </View>
+                        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <Ionicons name="time" size={24} color={colors.success} />
+                            <Text style={[styles.statNumber, { color: colors.text }]}>{doctor.experience}+</Text>
+                            <Text style={[styles.statLabel, { color: colors.icon }]}>Years</Text>
+                        </View>
+                    </View>
                 </View>
 
                 {/* About */}
@@ -321,5 +461,68 @@ const styles = StyleSheet.create({
     priceText: {
         fontSize: 16,
         fontWeight: '600',
+    },
+    notFoundContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 40,
+    },
+    notFoundTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    notFoundText: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    browseButton: {
+        minWidth: 150,
+    },
+    quickActions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    actionButton: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    actionIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    actionText: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    statsContainer: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    statCard: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    statNumber: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginTop: 8,
+        marginBottom: 4,
+    },
+    statLabel: {
+        fontSize: 12,
     },
 });

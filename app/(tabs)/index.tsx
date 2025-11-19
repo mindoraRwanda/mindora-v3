@@ -1,21 +1,58 @@
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { mockAppointments, mockDoctors } from '@/constants/Data';
-import { currentUser } from '@/constants/UserData';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
+import { logActivity } from '@/utils/activityTracker';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const colorScheme = useThemeColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { user, updateProfile } = useAuth();
+  const [selectedMood, setSelectedMood] = useState<number | null>(null);
 
   const upcomingAppointment = mockAppointments.find(apt => apt.status === 'upcoming');
   const featuredDoctor = mockDoctors[0];
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const handleMoodSelect = async (index: number) => {
+    setSelectedMood(index);
+    const moods = ['Very Sad', 'Sad', 'Neutral', 'Happy', 'Very Happy'];
+    const moodEmojis = ['😢', '😕', '😐', '🙂', '😊'];
+
+    Alert.alert('Mood Logged', `You're feeling ${moods[index]} today. Keep tracking your progress!`);
+
+    // Log activity and update stats
+    if (user) {
+      await logActivity(
+        user.id,
+        'mood',
+        'Mood Tracked',
+        `Logged mood: ${moods[index]} ${moodEmojis[index]}`,
+        'happy-outline',
+        '#F59E0B'
+      );
+
+      await updateProfile({
+        stats: {
+          ...user.stats,
+          dayStreak: user.stats.dayStreak + 1,
+        }
+      });
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -23,11 +60,16 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.greeting, { color: colors.icon }]}>Good morning,</Text>
-            <Text style={[styles.name, { color: colors.text }]}>{currentUser.name.split(' ')[0]}</Text>
+            <Text style={[styles.greeting, { color: colors.icon }]}>{getGreeting()},</Text>
+            <Text style={[styles.name, { color: colors.text }]}>{user?.name.split(' ')[0]}</Text>
           </View>
-          <TouchableOpacity>
-            <Ionicons name="notifications-outline" size={24} color={colors.icon} />
+          <TouchableOpacity onPress={() => Alert.alert('Notifications', 'You have 3 new notifications')}>
+            <View>
+              <Ionicons name="notifications-outline" size={24} color={colors.icon} />
+              <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                <Text style={styles.badgeText}>3</Text>
+              </View>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -178,7 +220,14 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]}>How are you feeling today?</Text>
           <View style={styles.moodTracker}>
             {['😢', '😕', '😐', '🙂', '😊'].map((emoji, index) => (
-              <TouchableOpacity key={index} style={styles.moodButton}>
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.moodButton,
+                  selectedMood === index && { backgroundColor: colors.primary + '30', borderWidth: 2, borderColor: colors.primary }
+                ]}
+                onPress={() => handleMoodSelect(index)}
+              >
                 <Text style={styles.moodEmoji}>{emoji}</Text>
               </TouchableOpacity>
             ))}
@@ -324,6 +373,21 @@ const styles = StyleSheet.create({
   },
   moodEmoji: {
     fontSize: 24,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   joinCallButton: {
     flexDirection: 'row',

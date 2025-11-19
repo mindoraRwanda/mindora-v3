@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColorScheme } from '@/hooks/use-theme-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SignupScreen() {
     const colorScheme = useThemeColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
+    const { signup } = useAuth();
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -18,9 +20,35 @@ export default function SignupScreen() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    const validateEmail = (email: string) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
     const handleSignup = async () => {
-        if (!name || !email || !password || !confirmPassword) {
-            Alert.alert('Error', 'Please fill in all fields');
+        // Validation
+        if (!name.trim()) {
+            Alert.alert('Error', 'Please enter your full name');
+            return;
+        }
+
+        if (!email.trim()) {
+            Alert.alert('Error', 'Please enter your email address');
+            return;
+        }
+
+        if (!validateEmail(email)) {
+            Alert.alert('Error', 'Please enter a valid email address');
+            return;
+        }
+
+        if (!password) {
+            Alert.alert('Error', 'Please enter a password');
+            return;
+        }
+
+        if (password.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters long');
             return;
         }
 
@@ -30,13 +58,14 @@ export default function SignupScreen() {
         }
 
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+        try {
+            await signup(name.trim(), email.trim().toLowerCase(), password);
+            // Success - navigation handled by AuthContext
+        } catch (error: any) {
+            Alert.alert('Signup Failed', error.message || 'Failed to create account. Please try again.');
+        } finally {
             setLoading(false);
-            Alert.alert('Success', 'Account created successfully!', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)') }
-            ]);
-        }, 1500);
+        }
     };
 
     return (
