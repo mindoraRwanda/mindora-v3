@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 17,
         marginBottom: 4,
-        color: '#0a7ea4',
+        color: '#6D28D9',
     },
     bodyText: {
         lineHeight: 24,
