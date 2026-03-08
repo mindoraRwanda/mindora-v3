@@ -1,12 +1,11 @@
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
-import { useRouter, Link } from 'expo-router';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { login } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { login } from '@/services/api';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -29,11 +28,11 @@ export default function LoginScreen() {
         // But api.md says: Response includes accessToken and refreshToken.
         // Let's assume it returns user info too or we need to fetch it.
         // Let's check api.md again.
-        
+
         // "Response includes accessToken and refreshToken."
         // Usually login returns user info too.
         // If not, we might need to fetch profile.
-        
+
         const { accessToken, user } = response.data;
         await signIn(accessToken, user);
         router.replace('/(tabs)');
@@ -80,8 +79,8 @@ export default function LoginScreen() {
           />
         </View>
 
-        <TouchableOpacity 
-          style={styles.button} 
+        <TouchableOpacity
+          style={styles.button}
           onPress={handleLogin}
           disabled={loading}
         >
@@ -93,7 +92,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <ThemedText>Don't have an account? </ThemedText>
+          <ThemedText>Don&apos;t have an account? </ThemedText>
           <Link href="/auth/register" asChild>
             <TouchableOpacity>
               <ThemedText type="link">Sign Up</ThemedText>
