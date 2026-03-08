@@ -1,6 +1,5 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { Platform, TouchableOpacity } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -9,12 +8,12 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: Platform.select({
           ios: {
@@ -22,6 +21,19 @@ export default function TabLayout() {
           },
           default: {},
         }),
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => router.push('/modal')}
+            style={{ marginRight: 16 }}
+            accessibilityLabel="About Mindora"
+            accessibilityRole="button">
+            <IconSymbol
+              name="info.circle"
+              size={24}
+              color={Colors[colorScheme ?? 'light'].tint}
+            />
+          </TouchableOpacity>
+        ),
       }}>
       <Tabs.Screen
         name="index"
