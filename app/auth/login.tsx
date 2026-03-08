@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   button: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#6D28D9',
     height: 50,
     borderRadius: 8,
     justifyContent: 'center',
