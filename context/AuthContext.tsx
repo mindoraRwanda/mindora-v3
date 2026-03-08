@@ -9,8 +9,7 @@ const USER_KEY = 'user_info';
 interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   role: string;
 }
 
