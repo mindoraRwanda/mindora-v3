@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
+const USER_KEY = 'user_info';
 
 interface User {
   id: string;
@@ -16,7 +18,7 @@ interface AuthContextType {
   token: string | null;
   user: User | null;
   isLoading: boolean;
-  signIn: (token: string, user: User) => Promise<void>;
+  signIn: (token: string, user: User, refreshToken?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (user: User) => void;
 }
@@ -32,92 +34,96 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+// Storage helpers that work cross-platform
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Single effect to load both token and user — avoids race condition
   useEffect(() => {
-    loadToken();
+    const initialize = async () => {
+      try {
+        const [storedToken, storedUser] = await Promise.all([
+          storage.getItem(TOKEN_KEY),
+          storage.getItem(USER_KEY),
+        ]);
+
+        if (storedToken) {
+          setToken(storedToken);
+        }
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch {
+            // Corrupted user data — clear it
+            await storage.removeItem(USER_KEY);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to initialize auth state', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initialize();
   }, []);
 
-  const loadToken = async () => {
-    try {
-      let storedToken = null;
-      if (Platform.OS === 'web') {
-        storedToken = localStorage.getItem(TOKEN_KEY);
-      } else {
-        storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-      }
-
-      if (storedToken) {
-        setToken(storedToken);
-        // Here we could also fetch the user profile if we don't store user info
-        // For now, we rely on the app to fetch profile after auth check if needed
-        // Or we could store user info in storage too
-      }
-    } catch (e) {
-      console.error('Failed to load token', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signIn = async (newToken: string, newUser: User) => {
+  const signIn = useCallback(async (newToken: string, newUser: User, refreshToken?: string) => {
     setToken(newToken);
     setUser(newUser);
     try {
-      if (Platform.OS === 'web') {
-        localStorage.setItem(TOKEN_KEY, newToken);
-        localStorage.setItem('user_info', JSON.stringify(newUser));
-      } else {
-        await SecureStore.setItemAsync(TOKEN_KEY, newToken);
-        await SecureStore.setItemAsync('user_info', JSON.stringify(newUser));
-      }
+      await Promise.all([
+        storage.setItem(TOKEN_KEY, newToken),
+        storage.setItem(USER_KEY, JSON.stringify(newUser)),
+        ...(refreshToken ? [storage.setItem(REFRESH_TOKEN_KEY, refreshToken)] : []),
+      ]);
     } catch (e) {
-      console.error('Failed to save token', e);
+      console.error('Failed to persist auth state', e);
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setToken(null);
     setUser(null);
     try {
-      if (Platform.OS === 'web') {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem('user_info');
-      } else {
-        await SecureStore.deleteItemAsync(TOKEN_KEY);
-        await SecureStore.deleteItemAsync('user_info');
-      }
+      await Promise.all([
+        storage.removeItem(TOKEN_KEY),
+        storage.removeItem(USER_KEY),
+        storage.removeItem(REFRESH_TOKEN_KEY),
+      ]);
     } catch (e) {
-      console.error('Failed to delete token', e);
+      console.error('Failed to clear auth state', e);
     }
-  };
+  }, []);
 
-  const updateUser = (newUser: User) => {
+  const updateUser = useCallback((newUser: User) => {
     setUser(newUser);
-  };
-
-  // Try to load user from storage as well
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        let storedUser = null;
-        if (Platform.OS === 'web') {
-          storedUser = localStorage.getItem('user_info');
-        } else {
-          storedUser = await SecureStore.getItemAsync('user_info');
-        }
-
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
-      } catch (e) {
-        console.error('Failed to load user', e);
-      }
-    };
-    loadUser();
+    storage.setItem(USER_KEY, JSON.stringify(newUser)).catch(console.error);
   }, []);
 
   return (
