@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     code: {
         fontSize: 80,
         fontWeight: 'bold',
-        color: '#0a7ea4',
+        color: '#6D28D9',
         lineHeight: 90,
     },
     title: {
