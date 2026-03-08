@@ -7,14 +7,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/context/AuthContext';
 import { getEmergencyContacts } from '@/services/api';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors } from '@/constants/theme';
 
 interface Contact {
   id: string;
@@ -24,381 +28,191 @@ interface Contact {
 }
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme() ?? 'light';
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { user, signOut } = useAuth();
+  const { user, token } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     loadContacts();
-  }, []);
+  }, [token]);
 
   const loadContacts = async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const response: any = await getEmergencyContacts();
+      const response: any = await getEmergencyContacts(token || undefined);
       if (response.success) {
         setContacts(response.data);
-      } else {
-        setError('Failed to load contacts');
       }
     } catch (err) {
-      setError('Could not reach the server. Please check your internet connection.');
-      console.error(err);
+      // Silently fail for home contacts to avoid disruptive error boxes
+      console.warn('Emergency contacts load failed', err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleCall = (phone: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const url = `tel:${phone}`;
-    Linking.canOpenURL(url)
-      .then((supported) => {
-        if (supported) {
-          Linking.openURL(url);
-        } else {
-          Alert.alert('Unable to make call', `Please dial ${phone} manually.`);
-        }
-      })
-      .catch(console.error);
+    Linking.openURL(url).catch(() => Alert.alert('Error', 'Unable to make call'));
   };
 
-  const handleSignOut = async () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: () => signOut(),
-      },
-    ]);
+  const handleNavigate = (route: string) => {
+    Haptics.selectionAsync();
+    router.push(route as any);
   };
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#F5F3FF', dark: '#1D1B26' }}
-      headerImage={
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <ThemedText style={styles.logoLetter}>M</ThemedText>
-          </View>
-          <ThemedText style={styles.logoSubtext}>Mindora</ThemedText>
-        </View>
-      }>
-
-      {/* Welcome Section */}
-      <ThemedView style={styles.titleContainer}>
-        <View>
-          <ThemedText type="title">
-            {user ? `Hello, ${user.firstName || 'there'}!` : 'Welcome to Mindora'}
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>Your Mental Health Companion</ThemedText>
-        </View>
-      </ThemedView>
-
-      {/* Auth Section */}
-      <ThemedView style={styles.card}>
-        {user ? (
+    <ThemedView style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top || 60, paddingBottom: insets.bottom + 40 }]} 
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Header */}
+        <View style={styles.header}>
           <View>
-            <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
-              You are signed in
+            <ThemedText style={styles.greeting}>Good afternoon,</ThemedText>
+            <ThemedText type="title" style={styles.userName}>
+              {user?.fullName ? user.fullName.split(' ')[0] : 'Guest'} 👋
             </ThemedText>
-            <ThemedText style={styles.emailText}>{user.email}</ThemedText>
-            <View style={styles.rowButtons}>
-              <TouchableOpacity
-                onPress={() => router.push('/modal')}
-                style={[styles.button, styles.secondaryButton]}>
-                <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>
-                  About
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSignOut} style={[styles.button, styles.dangerButton]}>
-                <ThemedText style={styles.buttonText}>Sign Out</ThemedText>
-              </TouchableOpacity>
-            </View>
           </View>
-        ) : (
-          <View>
-            <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
-              Get Started
-            </ThemedText>
-            <ThemedText style={styles.cardBody}>
-              Sign in to access your appointments, mood tracking, therapist connections, and more.
-            </ThemedText>
-            <View style={styles.authButtons}>
-              <Link href="/auth/login" asChild>
-                <TouchableOpacity style={styles.button}>
-                  <ThemedText style={styles.buttonText}>Sign In</ThemedText>
-                </TouchableOpacity>
-              </Link>
-              <Link href="/auth/register" asChild>
-                <TouchableOpacity style={[styles.button, styles.secondaryButton]}>
-                  <ThemedText style={[styles.buttonText, styles.secondaryButtonText]}>
-                    Sign Up
-                  </ThemedText>
-                </TouchableOpacity>
-              </Link>
+          <TouchableOpacity onPress={() => handleNavigate('/modal')} style={styles.profileBtn}>
+            <View style={styles.avatarMini}>
+              <ThemedText style={styles.avatarTxt}>{user?.fullName ? user.fullName.charAt(0) : 'M'}</ThemedText>
             </View>
-          </View>
-        )}
-      </ThemedView>
+          </TouchableOpacity>
+        </View>
 
-      {/* Features Section (when not logged in) */}
-      {!user && (
-        <ThemedView style={styles.featuresCard}>
-          <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
-            What Mindora Offers
-          </ThemedText>
-          {[
-            { icon: 'person.2.fill', text: 'Connect with licensed therapists' },
-            { icon: 'chart.bar.fill', text: 'Track your mood and wellness' },
-            { icon: 'book.fill', text: 'Access mental health resources' },
-            { icon: 'bubble.left.fill', text: 'Join a supportive community' },
-          ].map((feature, idx) => (
-            <View key={idx} style={styles.featureRow}>
-              <IconSymbol name={feature.icon as any} size={20} color="#6D28D9" />
-              <ThemedText style={styles.featureText}>{feature.text}</ThemedText>
-            </View>
-          ))}
+        {/* Hero Card */}
+        <ThemedView style={styles.heroCard}>
+          <View style={styles.heroContent}>
+            <ThemedText style={styles.heroTitle}>How are you today?</ThemedText>
+            <ThemedText style={styles.heroSubtitle}>Take a moment to check in with yourself.</ThemedText>
+            <TouchableOpacity style={styles.heroBtn} onPress={() => handleNavigate('/reports')}>
+              <ThemedText style={styles.heroBtnText}>Start Check-in</ThemedText>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.heroGraphic}>
+             <IconSymbol name="house.fill" size={80} color="rgba(255,255,255,0.2)" />
+          </View>
         </ThemedView>
-      )}
 
-      {/* Emergency Contacts */}
-      <ThemedView style={styles.emergencySection}>
-        <View style={styles.sectionHeader}>
-          <IconSymbol name="phone.fill" size={18} color="#d9534f" />
-          <ThemedText type="defaultSemiBold" style={styles.emergencyTitle}>
-            Emergency Contacts
-          </ThemedText>
+        {/* Quick Actions Grid */}
+        <View style={styles.section}>
+          <ThemedText type="defaultSemiBold" style={styles.sectionLabel}>Quick Actions</ThemedText>
+          <View style={styles.grid}>
+            {[
+              { label: 'Booking', icon: 'calendar', route: '/appointments', color: '#6D28D9' },
+              { label: 'Community', icon: 'bubble.left.and.bubble.right', route: '/community', color: '#10B981' },
+              { label: 'Exercises', icon: 'gamecontroller', route: '/games', color: '#F59E0B' },
+              { label: 'Resources', icon: 'book.fill', route: '/community', color: '#3B82F6' },
+            ].map((item, idx) => (
+              <TouchableOpacity key={idx} style={styles.gridItem} onPress={() => handleNavigate(item.route)}>
+                <View style={[styles.iconBox, { backgroundColor: item.color + '15' }]}>
+                  <IconSymbol name={item.icon as any} size={24} color={item.color} />
+                </View>
+                <ThemedText style={styles.gridLabel}>{item.label}</ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {loading ? (
-          <ActivityIndicator size="large" color="#6D28D9" style={styles.loader} />
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
-            <TouchableOpacity onPress={loadContacts} style={styles.retryButton}>
-              <ThemedText style={styles.retryText}>Retry</ThemedText>
-            </TouchableOpacity>
-          </View>
-        ) : contacts.length === 0 ? (
-          <ThemedText style={styles.emptyText}>No emergency contacts available at the moment.</ThemedText>
-        ) : (
-          contacts.map((contact) => (
-            <TouchableOpacity
-              key={contact.id}
-              style={styles.contactCard}
-              onPress={() => handleCall(contact.phone)}
-              accessibilityLabel={`Call ${contact.name} at ${contact.phone}`}
-              accessibilityRole="button">
-              <View style={styles.contactInfo}>
-                <ThemedText type="defaultSemiBold">{contact.name}</ThemedText>
-                <ThemedText style={styles.contactPhone}>{contact.phone}</ThemedText>
-                {contact.description ? (
-                  <ThemedText style={styles.contactDesc}>{contact.description}</ThemedText>
-                ) : null}
-              </View>
-              <View style={styles.callIcon}>
-                <IconSymbol name="phone.fill" size={20} color="#fff" />
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ThemedView>
+        {/* Recommended Content */}
+        <View style={styles.section}>
+          <ThemedText type="defaultSemiBold" style={styles.sectionLabel}>Featured for You</ThemedText>
+          <TouchableOpacity style={styles.featureCard} onPress={() => handleNavigate('/community')}>
+            <View style={styles.featureInfo}>
+              <ThemedText style={styles.featureCategory}>GUIDE</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.featureTitle}>Understanding Anxiety</ThemedText>
+              <ThemedText style={styles.featureDesc}>Learn about common symptoms and coping mechanisms.</ThemedText>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color="#6D28D9" />
+          </TouchableOpacity>
+        </View>
 
-      {/* Privacy Policy Link */}
-      <View style={styles.privacyLinkContainer}>
-        <Link href="/privacy-policy">
-          <ThemedText style={styles.privacyLink}>Privacy Policy</ThemedText>
-        </Link>
-      </View>
-    </ParallaxScrollView>
+        {/* Emergency Section */}
+        <View style={styles.emergencyBox}>
+          <View style={styles.emergencyHeader}>
+             <IconSymbol name="phone" size={18} color="#EF4444" />
+             <ThemedText style={styles.emergencyTitle}>Emergency Assistance</ThemedText>
+          </View>
+          {loading ? (
+            <ActivityIndicator color={Colors[colorScheme].tint} style={{ marginTop: 10 }} />
+          ) : contacts.length > 0 ? (
+            contacts.slice(0, 1).map(contact => (
+              <TouchableOpacity key={contact.id} style={styles.callRow} onPress={() => handleCall(contact.phone)}>
+                <ThemedText style={styles.callName}>{contact.name}</ThemedText>
+                <ThemedText style={styles.callPhone}>{contact.phone}</ThemedText>
+                <View style={styles.callBtn}>
+                   <IconSymbol name="phone" size={14} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <ThemedText style={styles.emptyText}>Emergency services are available 24/7.</ThemedText>
+          )}
+        </View>
+
+        {!user && (
+          <View style={styles.authPromo}>
+            <ThemedText style={styles.promoText}>Sign in to unlock personalized insights and sync your progress.</ThemedText>
+            <Link href="/auth/login" asChild>
+              <TouchableOpacity style={styles.signInBtn}>
+                <ThemedText style={styles.signInTxt}>Sign In</ThemedText>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <ThemedText style={styles.footerText}>Mindora v1.0 • Professional Care</ThemedText>
+        </View>
+      </ScrollView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  logoContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: '#6D28D9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoLetter: {
-    color: '#fff',
-    fontSize: 44,
-    fontWeight: 'bold',
-  },
-  logoSubtext: {
-    color: '#6D28D9',
-    fontSize: 22,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  titleContainer: {
-    gap: 4,
-    marginBottom: 4,
-  },
-  subtitle: {
-    opacity: 0.6,
-    fontSize: 15,
-    marginTop: 4,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    backgroundColor: 'rgba(109, 40, 217, 0.06)',
-  },
-  featuresCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    gap: 10,
-    backgroundColor: 'rgba(109, 40, 217, 0.06)',
-  },
-  cardTitle: {
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  cardBody: {
-    lineHeight: 22,
-    opacity: 0.8,
-    marginBottom: 12,
-  },
-  emailText: {
-    opacity: 0.6,
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  authButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  rowButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  button: {
-    backgroundColor: '#6D28D9',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  dangerButton: {
-    backgroundColor: '#d9534f',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#6D28D9',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  secondaryButtonText: {
-    color: '#6D28D9',
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  featureText: {
-    fontSize: 15,
-  },
-  emergencySection: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  emergencyTitle: {
-    fontSize: 16,
-    color: '#d9534f',
-  },
-  loader: {
-    marginVertical: 12,
-  },
-  errorContainer: {
-    gap: 8,
-  },
-  errorText: {
-    color: '#d9534f',
-    lineHeight: 22,
-  },
-  retryButton: {
-    backgroundColor: '#6D28D9',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    opacity: 0.6,
-    fontStyle: 'italic',
-  },
-  contactCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: 'rgba(109, 40, 217, 0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(109, 40, 217, 0.1)',
-  },
-  contactInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  contactPhone: {
-    color: '#6D28D9',
-    fontSize: 14,
-  },
-  contactDesc: {
-    opacity: 0.6,
-    fontSize: 13,
-  },
-  callIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#28a745',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  privacyLinkContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  privacyLink: {
-    color: '#6D28D9',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
+  container: { flex: 1 },
+  scroll: { },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 24 },
+  greeting: { fontSize: 14, opacity: 0.5, fontWeight: '500' },
+  userName: { fontSize: 24, fontWeight: '700' },
+  profileBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', padding: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+  avatarMini: { flex: 1, borderRadius: 20, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { color: '#6D28D9', fontWeight: 'bold' },
+  heroCard: { marginHorizontal: 20, backgroundColor: '#6D28D9', borderRadius: 28, padding: 24, flexDirection: 'row', overflow: 'hidden', marginBottom: 24 },
+  heroContent: { flex: 1, zIndex: 1 },
+  heroTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
+  heroSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 20, lineHeight: 18 },
+  heroBtn: { backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+  heroBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  heroGraphic: { position: 'absolute', right: -20, bottom: -20, opacity: 0.2 },
+  section: { paddingHorizontal: 20, marginBottom: 24 },
+  sectionLabel: { fontSize: 16, marginBottom: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  gridItem: { width: '48%', backgroundColor: '#fff', borderRadius: 24, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  iconBox: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  gridLabel: { fontSize: 13, fontWeight: '600', color: '#555' },
+  featureCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: '#F5F5F5' },
+  featureInfo: { flex: 1 },
+  featureCategory: { fontSize: 9, fontWeight: 'bold', color: '#6D28D9', letterSpacing: 1, marginBottom: 4 },
+  featureTitle: { fontSize: 16, marginBottom: 4 },
+  featureDesc: { fontSize: 12, opacity: 0.5, lineHeight: 18 },
+  emergencyBox: { marginHorizontal: 20, backgroundColor: '#FEF2F2', borderRadius: 24, padding: 16, marginBottom: 24 },
+  emergencyHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  emergencyTitle: { color: '#EF4444', fontWeight: 'bold', fontSize: 14 },
+  callRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 12, borderRadius: 16 },
+  callName: { flex: 1, fontSize: 14, fontWeight: '600' },
+  callPhone: { fontSize: 14, color: '#EF4444', fontWeight: 'bold', marginRight: 12 },
+  callBtn: { backgroundColor: '#EF4444', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { textAlign: 'center', fontSize: 12, color: '#EF4444', opacity: 0.6 },
+  authPromo: { backgroundColor: 'rgba(0,0,0,0.03)', marginHorizontal: 20, borderRadius: 24, padding: 20, alignItems: 'center', gap: 16, marginBottom: 24 },
+  promoText: { textAlign: 'center', fontSize: 13, opacity: 0.6, lineHeight: 20 },
+  signInBtn: { backgroundColor: '#333', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 },
+  signInTxt: { color: '#fff', fontWeight: 'bold' },
+  footer: { alignItems: 'center', marginBottom: 20 },
+  footerText: { fontSize: 11, opacity: 0.3 },
 });
