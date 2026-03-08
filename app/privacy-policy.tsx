@@ -1,173 +1,107 @@
 import { Stack } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
-const LAST_UPDATED = 'February 27, 2026';
+const LAST_UPDATED = 'March 08, 2026';
 const COMPANY_EMAIL = 'privacy@mindora.app';
 const COMPANY_NAME = 'Mindora';
 
 interface SectionProps {
     title: string;
+    icon: any;
     children: React.ReactNode;
 }
 
-function Section({ title, children }: SectionProps) {
+function Section({ title, icon, children }: SectionProps) {
     return (
         <View style={styles.section}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-                {title}
-            </ThemedText>
-            {children}
+            <View style={styles.sectionHeader}>
+                <View style={styles.iconCircle}>
+                    <IconSymbol name={icon} size={14} color="#6D28D9" />
+                </View>
+                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                    {title}
+                </ThemedText>
+            </View>
+            <View style={styles.sectionContent}>
+                {children}
+            </View>
         </View>
     );
 }
 
 export default function PrivacyPolicyScreen() {
+    const insets = useSafeAreaInsets();
+    
     return (
         <>
             <Stack.Screen options={{ title: 'Privacy Policy' }} />
             <ThemedView style={styles.container}>
                 <ScrollView
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
                     showsVerticalScrollIndicator={false}>
-                    {/* Header */}
-                    <ThemedText type="title" style={styles.heading}>
-                        Privacy Policy
-                    </ThemedText>
-                    <ThemedText style={styles.lastUpdated}>
-                        Last Updated: {LAST_UPDATED}
-                    </ThemedText>
+                    
+                    <View style={styles.header}>
+                        <View style={styles.logoBadge}>
+                            <ThemedText style={styles.logoBadgeText}>M</ThemedText>
+                        </View>
+                        <ThemedText type="title" style={styles.heading}>
+                            Privacy Policy
+                        </ThemedText>
+                        <ThemedText style={styles.lastUpdated}>
+                            Effective as of {LAST_UPDATED}
+                        </ThemedText>
+                    </View>
+
                     <ThemedText style={styles.intro}>
-                        Welcome to {COMPANY_NAME}. We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.
+                        At {COMPANY_NAME}, your privacy is our priority. This policy outlines how we handle your data with the care and security it deserves.
                     </ThemedText>
 
-                    <Section title="1. Information We Collect">
+                    <Section title="1. Information We Collect" icon="person.2">
                         <ThemedText style={styles.bodyText}>
-                            We may collect the following categories of information:
+                            To provide a personalized experience, we collect:
                         </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Personal Identification Information:</ThemedText> First name, last name, email address, and profile photo.
+                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Identity:</ThemedText> Name and email address.</ThemedText>
+                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Wellness:</ThemedText> Mood logs and exercise progress.</ThemedText>
+                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Usage:</ThemedText> Feature interaction history.</ThemedText>
+                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Device:</ThemedText> OS version and identifiers.</ThemedText>
+                    </Section>
+
+                    <Section title="2. Usage of Data" icon="chart.bar">
+                        <ThemedText style={styles.bodyText}>
+                            Your information helps us:
                         </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Health &amp; Wellness Data:</ThemedText> Mood logs, exercise progress, and other mental health-related information you voluntarily provide.
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Usage Data:</ThemedText> Pages visited, features used, time stamps, and interaction history to improve your experience.
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Device Information:</ThemedText> Device type, operating system version, and unique device identifiers.
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Communications:</ThemedText> Messages exchanged with therapists through the platform (stored securely and only accessible to you and your therapist).
+                        <ThemedText style={styles.bulletItem}>• Personalize wellness insights.</ThemedText>
+                        <ThemedText style={styles.bulletItem}>• Facilitate therapist connections.</ThemedText>
+                        <ThemedText style={styles.bulletItem}>• Secure your account and data.</ThemedText>
+                    </Section>
+
+                    <Section title="3. Security Standards" icon="lock.fill">
+                        <ThemedText style={styles.bodyText}>
+                            We use industrial-grade encryption (TLS/HTTPS) for all data in transit and secure local storage for your credentials.
                         </ThemedText>
                     </Section>
 
-                    <Section title="2. How We Use Your Information">
+                    <Section title="4. Your Control" icon="hand.raised.fill">
                         <ThemedText style={styles.bodyText}>
-                            We use the information we collect to:
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Create and manage your account</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Connect you with licensed therapists and mental health resources</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Track your mood and mental wellness over time</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Send you appointment reminders and notifications</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Improve and personalize your experience</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Detect and prevent fraudulent or harmful activity</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Comply with legal obligations</ThemedText>
-                    </Section>
-
-                    <Section title="3. How We Share Your Information">
-                        <ThemedText style={styles.bodyText}>
-                            We do <ThemedText type="defaultSemiBold">not</ThemedText> sell your personal information. We may share information with:
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Licensed Therapists:</ThemedText> Only the therapist(s) you book appointments with will have access to your shared profile and session notes.
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Service Providers:</ThemedText> Trusted third parties that help us operate the platform (e.g., cloud hosting, analytics), bound by confidentiality agreements.
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            • <ThemedText type="defaultSemiBold">Legal Compliance:</ThemedText> We may disclose data if required by law or to protect the safety of our users or the public.
+                            You have the right to access, correct, or permanently delete your data at any time via the Settings menu or by contacting support.
                         </ThemedText>
                     </Section>
 
-                    <Section title="4. Data Security">
+                    <Section title="5. Contact" icon="envelope.fill">
                         <ThemedText style={styles.bodyText}>
-                            We implement industry-standard security measures to protect your data, including:
+                            For any privacy inquiries, reach out to our dedicated team at:
                         </ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Encryption of data in transit (TLS/HTTPS)</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Encrypted storage of authentication tokens using device-level security</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Role-based access controls to limit who can view your data</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Regular security audits and vulnerability assessments</ThemedText>
-                        <ThemedText style={styles.bodyText}>
-                            While we strive to use commercially acceptable means to protect your information, no method of transmission over the Internet or electronic storage is 100% secure.
-                        </ThemedText>
-                    </Section>
-
-                    <Section title="5. Health Information">
-                        <ThemedText style={styles.bodyText}>
-                            Mental health information you share on Mindora (such as mood logs, session notes, and exercise data) is treated with the highest level of sensitivity. This information is:
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Encrypted and stored securely</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Only accessible to you and your designated therapist</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Never used for advertising purposes</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• Never sold to third parties</ThemedText>
-                    </Section>
-
-                    <Section title="6. Data Retention">
-                        <ThemedText style={styles.bodyText}>
-                            We retain your personal information for as long as your account is active or as needed to provide you with our services. You may request deletion of your account and associated data at any time by contacting us at {COMPANY_EMAIL}. Note that some data may be retained for a limited period to comply with legal obligations.
-                        </ThemedText>
-                    </Section>
-
-                    <Section title="7. Your Rights">
-                        <ThemedText style={styles.bodyText}>
-                            Depending on your location, you may have the following rights:
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Access:</ThemedText> Request a copy of the personal data we hold about you.</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Correction:</ThemedText> Request that we correct inaccurate or incomplete data.</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Deletion:</ThemedText> Request that we delete your personal data.</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Portability:</ThemedText> Request a machine-readable copy of your data.</ThemedText>
-                        <ThemedText style={styles.bulletItem}>• <ThemedText type="defaultSemiBold">Objection:</ThemedText> Object to certain types of data processing.</ThemedText>
-                        <ThemedText style={styles.bodyText}>
-                            To exercise any of these rights, please contact us at {COMPANY_EMAIL}.
-                        </ThemedText>
-                    </Section>
-
-                    <Section title="8. Children&apos;s Privacy">
-                        <ThemedText style={styles.bodyText}>
-                            Mindora is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If you become aware that a child has provided us with personal information, please contact us at {COMPANY_EMAIL} so we can take appropriate action.
-                        </ThemedText>
-                    </Section>
-
-                    <Section title="9. Third-Party Services">
-                        <ThemedText style={styles.bodyText}>
-                            Our app may contain links to third-party websites or services that are not operated by us. We strongly advise you to review the Privacy Policy of every site you visit. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party sites or services.
-                        </ThemedText>
-                    </Section>
-
-                    <Section title="10. Changes to This Policy">
-                        <ThemedText style={styles.bodyText}>
-                            We may update this Privacy Policy from time to time. We will notify you of significant changes by posting the new policy within the app and updating the &quot;Last Updated&quot; date above. Your continued use of Mindora after any changes constitutes your acceptance of the updated policy.
-                        </ThemedText>
-                    </Section>
-
-                    <Section title="11. Contact Us">
-                        <ThemedText style={styles.bodyText}>
-                            If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at:
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            📧 <ThemedText type="defaultSemiBold">{COMPANY_EMAIL}</ThemedText>
-                        </ThemedText>
-                        <ThemedText style={styles.bulletItem}>
-                            🌐 <ThemedText type="defaultSemiBold">https://mindora.app/privacy</ThemedText>
-                        </ThemedText>
+                        <ThemedText style={styles.contactEmail}>{COMPANY_EMAIL}</ThemedText>
                     </Section>
 
                     <View style={styles.footer}>
                         <ThemedText style={styles.footerText}>
-                            © {new Date().getFullYear()} {COMPANY_NAME}. All rights reserved.
+                            © {new Date().getFullYear()} {COMPANY_NAME} • Secure & Confidential
                         </ThemedText>
                     </View>
                 </ScrollView>
@@ -177,50 +111,22 @@ export default function PrivacyPolicyScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 48,
-    },
-    heading: {
-        marginBottom: 4,
-    },
-    lastUpdated: {
-        opacity: 0.6,
-        fontSize: 13,
-        marginBottom: 16,
-    },
-    intro: {
-        lineHeight: 24,
-        marginBottom: 24,
-    },
-    section: {
-        marginBottom: 28,
-        gap: 8,
-    },
-    sectionTitle: {
-        fontSize: 17,
-        marginBottom: 4,
-        color: '#6D28D9',
-    },
-    bodyText: {
-        lineHeight: 24,
-    },
-    bulletItem: {
-        lineHeight: 24,
-        paddingLeft: 8,
-    },
-    footer: {
-        marginTop: 20,
-        paddingTop: 20,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: 'rgba(150,150,150,0.3)',
-        alignItems: 'center',
-    },
-    footerText: {
-        opacity: 0.5,
-        fontSize: 12,
-    },
+    container: { flex: 1 },
+    scrollContent: { padding: 24 },
+    header: { alignItems: 'center', marginBottom: 32 },
+    logoBadge: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#6D28D9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    logoBadgeText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+    heading: { fontSize: 24, fontWeight: 'bold' },
+    lastUpdated: { opacity: 0.4, fontSize: 12, marginTop: 4 },
+    intro: { textAlign: 'center', lineHeight: 22, opacity: 0.7, marginBottom: 40 },
+    section: { marginBottom: 32 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+    iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(109, 40, 217, 0.1)', alignItems: 'center', justifyContent: 'center' },
+    sectionTitle: { fontSize: 16, color: '#6D28D9' },
+    sectionContent: { paddingLeft: 40 },
+    bodyText: { lineHeight: 22, opacity: 0.8 },
+    bulletItem: { lineHeight: 22, opacity: 0.8, marginTop: 4 },
+    contactEmail: { color: '#6D28D9', fontWeight: 'bold', marginTop: 8 },
+    footer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 20 },
+    footerText: { opacity: 0.3, fontSize: 11 },
 });

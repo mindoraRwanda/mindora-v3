@@ -19,8 +19,14 @@ function RootLayoutNav() {
   // This prevents a flash of the unauthenticated state on startup.
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#6D28D9" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? '#151718' : '#fff' }}>
+        <View style={{ width: 80, height: 80, borderRadius: 24, backgroundColor: '#6D28D9', alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: '#6D28D9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 }}>
+           <ActivityIndicator size="large" color="#fff" />
+        </View>
+        <View style={{ alignItems: 'center' }}>
+          <ActivityIndicator size="small" color="#6D28D9" style={{ opacity: 0 }} /> 
+          {/* We use the indicator above inside the logo box now */}
+        </View>
       </View>
     );
   }

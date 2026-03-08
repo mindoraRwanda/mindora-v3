@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Alert, Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -8,9 +10,11 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function AboutScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
 
   const handleSignOut = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       { 
@@ -25,6 +29,7 @@ export default function AboutScreen() {
   };
 
   const handleDeleteAccount = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Delete Account',
       'This action is permanent and will delete all your data, including mood history and appointments. Are you absolutely sure?',
@@ -34,7 +39,6 @@ export default function AboutScreen() {
           text: 'Delete Everything',
           style: 'destructive',
           onPress: async () => {
-            // Ideally call an API here: await api.delete('/users/profile');
             Alert.alert(
               'Request Received',
               'Your account deletion request has been received. You will be signed out and your data will be removed within 24 hours.',
@@ -56,28 +60,33 @@ export default function AboutScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]} showsVerticalScrollIndicator={false}>
         {/* Logo / Brand */}
         <View style={styles.brandSection}>
           <View style={styles.logoCircle}>
-            <ThemedText style={styles.logoText}>M</ThemedText>
+             <IconSymbol name="house.fill" size={32} color="#fff" />
           </View>
           <ThemedText type="title" style={styles.appName}>Mindora</ThemedText>
           <ThemedText style={styles.tagline}>Your Mental Health Companion</ThemedText>
-          <ThemedText style={styles.version}>Version 1.0.0</ThemedText>
+          <View style={styles.versionBadge}>
+             <ThemedText style={styles.version}>VERSION 1.0.0</ThemedText>
+          </View>
         </View>
 
         {/* User Info Section */}
         {user && (
           <View style={styles.section}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Account</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.sectionLabel}>Account Settings</ThemedText>
             <View style={styles.accountCard}>
+              <View style={styles.avatar}>
+                 <ThemedText style={styles.avatarTxt}>{user.fullName.charAt(0)}</ThemedText>
+              </View>
               <View style={styles.accountInfo}>
-                <ThemedText style={styles.userName}>{user.firstName} {user.lastName}</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.userName}>{user.fullName}</ThemedText>
                 <ThemedText style={styles.userEmail}>{user.email}</ThemedText>
               </View>
               <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-                <ThemedText style={styles.signOutText}>Sign Out</ThemedText>
+                <IconSymbol name="book.fill" size={16} color="#6D28D9" />
               </TouchableOpacity>
             </View>
           </View>
@@ -85,40 +94,46 @@ export default function AboutScreen() {
 
         {/* Links Section */}
         <View style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Support & Legal</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionLabel}>Support & Legal</ThemedText>
           <View style={styles.linksContainer}>
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() => router.push('/privacy-policy')}>
+              onPress={() => { Haptics.selectionAsync(); router.push('/privacy-policy'); }}>
               <View style={styles.linkIconTitle}>
-                <IconSymbol name="lock.fill" size={18} color="#6D28D9" />
+                <View style={[styles.miniIcon, { backgroundColor: '#F3E8FF' }]}>
+                   <IconSymbol name="lock.fill" size={14} color="#6D28D9" />
+                </View>
                 <ThemedText style={styles.linkLabel}>Privacy Policy</ThemedText>
               </View>
-              <ThemedText style={styles.chevron}>›</ThemedText>
+              <IconSymbol name="chevron.right" size={12} color="#A0A0A0" />
             </TouchableOpacity>
 
             <View style={styles.divider} />
 
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() => Linking.openURL('mailto:support@mindora.app')}>
+              onPress={() => { Haptics.selectionAsync(); Linking.openURL('mailto:support@mindora.app'); }}>
               <View style={styles.linkIconTitle}>
-                <IconSymbol name="envelope.fill" size={18} color="#6D28D9" />
+                <View style={[styles.miniIcon, { backgroundColor: '#DBEAFE' }]}>
+                   <IconSymbol name="envelope.fill" size={14} color="#3B82F6" />
+                </View>
                 <ThemedText style={styles.linkLabel}>Contact Support</ThemedText>
               </View>
-              <ThemedText style={styles.chevron}>›</ThemedText>
+              <IconSymbol name="chevron.right" size={12} color="#A0A0A0" />
             </TouchableOpacity>
 
             <View style={styles.divider} />
 
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() => Linking.openURL('https://mindora.app/terms')}>
+              onPress={() => { Haptics.selectionAsync(); Linking.openURL('https://mindora.app/terms'); }}>
               <View style={styles.linkIconTitle}>
-                <IconSymbol name="doc.text.fill" size={18} color="#6D28D9" />
+                <View style={[styles.miniIcon, { backgroundColor: '#DCFCE7' }]}>
+                   <IconSymbol name="doc.text.fill" size={14} color="#10B981" />
+                </View>
                 <ThemedText style={styles.linkLabel}>Terms of Service</ThemedText>
               </View>
-              <ThemedText style={styles.chevron}>›</ThemedText>
+              <IconSymbol name="chevron.right" size={12} color="#A0A0A0" />
             </TouchableOpacity>
           </View>
         </View>
@@ -126,16 +141,21 @@ export default function AboutScreen() {
         {/* Danger Zone */}
         {user && (
           <View style={styles.section}>
-            <ThemedText type="defaultSemiBold" style={[styles.sectionTitle, { color: '#d9534f' }]}>Danger Zone</ThemedText>
+            <ThemedText type="defaultSemiBold" style={[styles.sectionLabel, { color: '#EF4444' }]}>Danger Zone</ThemedText>
             <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
-              <ThemedText style={styles.deleteButtonText}>Delete Account Permanently</ThemedText>
+              <IconSymbol name="book.fill" size={14} color="#EF4444" style={{ marginRight: 8 }} />
+              <ThemedText style={styles.deleteButtonText}>Delete My Account</ThemedText>
             </TouchableOpacity>
+            <ThemedText style={styles.dangerNote}>This will permanently erase all your progress and history.</ThemedText>
           </View>
         )}
 
         <View style={styles.footer}>
           <ThemedText style={styles.copyright}>
-            © {new Date().getFullYear()} Mindora. All rights reserved.
+            Designed with ♥ for mental wellness.
+          </ThemedText>
+          <ThemedText style={styles.copyright}>
+            © {new Date().getFullYear()} Mindora.
           </ThemedText>
         </View>
       </ScrollView>
@@ -144,146 +164,32 @@ export default function AboutScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    padding: 24,
-    paddingBottom: 48,
-  },
-  brandSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 8,
-  },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: '#6D28D9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    shadowColor: '#6D28D9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: 'bold',
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  tagline: {
-    opacity: 0.6,
-    fontSize: 14,
-    marginBottom: 6,
-  },
-  version: {
-    opacity: 0.4,
-    fontSize: 12,
-  },
-  section: {
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    opacity: 0.5,
-    marginBottom: 10,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  accountCard: {
-    backgroundColor: 'rgba(109, 40, 217, 0.05)',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(109, 40, 217, 0.1)',
-  },
-  accountInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  userName: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  userEmail: {
-    fontSize: 14,
-    opacity: 0.6,
-  },
-  signOutButton: {
-    backgroundColor: 'rgba(109, 40, 217, 0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  signOutText: {
-    color: '#6D28D9',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  linksContainer: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(150, 150, 150, 0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(150, 150, 150, 0.2)',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  linkIconTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  linkLabel: {
-    fontSize: 16,
-  },
-  chevron: {
-    fontSize: 22,
-    opacity: 0.3,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(150, 150, 150, 0.2)',
-    marginHorizontal: 16,
-  },
-  deleteButton: {
-    backgroundColor: 'rgba(217, 83, 79, 0.08)',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(217, 83, 79, 0.2)',
-  },
-  deleteButtonText: {
-    color: '#d9534f',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  copyright: {
-    opacity: 0.3,
-    fontSize: 12,
-  },
+  container: { flex: 1 },
+  scroll: { padding: 24 },
+  brandSection: { alignItems: 'center', marginBottom: 40 },
+  logoCircle: { width: 72, height: 72, borderRadius: 24, backgroundColor: '#6D28D9', alignItems: 'center', justifyContent: 'center', marginBottom: 16, shadowColor: '#6D28D9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
+  appName: { fontSize: 28, fontWeight: 'bold' },
+  tagline: { opacity: 0.5, fontSize: 14, marginTop: 4 },
+  versionBadge: { backgroundColor: 'rgba(0,0,0,0.05)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 12 },
+  version: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, opacity: 0.6 },
+  section: { marginBottom: 32 },
+  sectionLabel: { fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.5, marginBottom: 12, marginLeft: 4 },
+  accountCard: { backgroundColor: '#fff', borderRadius: 24, padding: 16, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { color: '#6D28D9', fontWeight: 'bold', fontSize: 18 },
+  accountInfo: { flex: 1, marginLeft: 16 },
+  userName: { fontSize: 16 },
+  userEmail: { fontSize: 13, opacity: 0.5 },
+  signOutButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(109, 40, 217, 0.05)', alignItems: 'center', justifyContent: 'center' },
+  linksContainer: { backgroundColor: '#fff', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 1 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  linkIconTitle: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  miniIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  linkLabel: { fontSize: 15 },
+  divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.03)', marginHorizontal: 16 },
+  deleteButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#FEE2E2' },
+  deleteButtonText: { color: '#EF4444', fontWeight: 'bold', fontSize: 15 },
+  dangerNote: { fontSize: 12, opacity: 0.4, marginTop: 10, textAlign: 'center' },
+  footer: { alignItems: 'center', marginTop: 20 },
+  copyright: { fontSize: 11, opacity: 0.3, marginBottom: 4 },
 });
-
