@@ -78,7 +78,7 @@ export default function HomeScreen() {
 
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#E6F4FE', dark: '#1D3D47' }}
+      headerBackgroundColor={{ light: '#F5F3FF', dark: '#1D1B26' }}
       headerImage={
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
@@ -92,7 +92,7 @@ export default function HomeScreen() {
       <ThemedView style={styles.titleContainer}>
         <View>
           <ThemedText type="title">
-            {user ? `Hello, ${user.firstName}!` : 'Welcome to Mindora'}
+            {user ? `Hello, ${user.firstName || 'there'}!` : 'Welcome to Mindora'}
           </ThemedText>
           <ThemedText style={styles.subtitle}>Your Mental Health Companion</ThemedText>
         </View>
@@ -158,7 +158,7 @@ export default function HomeScreen() {
             { icon: 'bubble.left.fill', text: 'Join a supportive community' },
           ].map((feature, idx) => (
             <View key={idx} style={styles.featureRow}>
-              <IconSymbol name={feature.icon as any} size={20} color="#0a7ea4" />
+              <IconSymbol name={feature.icon as any} size={20} color="#6D28D9" />
               <ThemedText style={styles.featureText}>{feature.text}</ThemedText>
             </View>
           ))}
@@ -175,7 +175,7 @@ export default function HomeScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#0a7ea4" style={styles.loader} />
+          <ActivityIndicator size="large" color="#6D28D9" style={styles.loader} />
         ) : error ? (
           <View style={styles.errorContainer}>
             <ThemedText style={styles.errorText}>{error}</ThemedText>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#6D28D9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   logoSubtext: {
-    color: '#0a7ea4',
+    color: '#6D28D9',
     fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 1,
@@ -257,14 +257,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    backgroundColor: 'rgba(10, 126, 164, 0.06)',
+    backgroundColor: 'rgba(109, 40, 217, 0.06)',
   },
   featuresCard: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     gap: 10,
-    backgroundColor: 'rgba(10, 126, 164, 0.06)',
+    backgroundColor: 'rgba(109, 40, 217, 0.06)',
   },
   cardTitle: {
     fontSize: 16,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   button: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#6D28D9',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#0a7ea4',
+    borderColor: '#6D28D9',
   },
   buttonText: {
     color: '#fff',
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   secondaryButtonText: {
-    color: '#0a7ea4',
+    color: '#6D28D9',
   },
   featureRow: {
     flexDirection: 'row',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   retryButton: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#6D28D9',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -367,16 +367,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderRadius: 10,
-    backgroundColor: 'rgba(150, 150, 150, 0.1)',
+    backgroundColor: 'rgba(109, 40, 217, 0.05)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(150, 150, 150, 0.2)',
+    borderColor: 'rgba(109, 40, 217, 0.1)',
   },
   contactInfo: {
     flex: 1,
     gap: 2,
   },
   contactPhone: {
-    color: '#0a7ea4',
+    color: '#6D28D9',
     fontSize: 14,
   },
   contactDesc: {
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   privacyLink: {
-    color: '#0a7ea4',
+    color: '#6D28D9',
     fontSize: 14,
     textDecorationLine: 'underline',
   },
