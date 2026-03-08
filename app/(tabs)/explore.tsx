@@ -20,7 +20,6 @@ export default function ResourcesScreen() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const colorScheme = useColorScheme();
 
   useEffect(() => {
     loadResources();
@@ -52,7 +51,7 @@ export default function ResourcesScreen() {
 
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#F0F2F5', dark: '#151718' }}
+      headerBackgroundColor={{ light: '#F5F3FF', dark: '#151718' }}
       headerImage={
         <View style={styles.headerContainer}>
           <View style={styles.iconCircle}>
@@ -72,7 +71,7 @@ export default function ResourcesScreen() {
         </ThemedText>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#0a7ea4" style={styles.loader} />
+          <ActivityIndicator size="large" color="#6D28D9" style={styles.loader} />
         ) : error ? (
           <View style={styles.errorContainer}>
             <ThemedText style={styles.errorText}>{error}</ThemedText>
@@ -101,7 +100,7 @@ export default function ResourcesScreen() {
                   </View>
                 )}
                 {resource.url && (
-                  <IconSymbol name="arrow.up.right" size={16} color="#0a7ea4" />
+                  <IconSymbol name="arrow.up.right" size={16} color="#6D28D9" />
                 )}
               </View>
 
@@ -135,7 +134,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#6D28D9',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -147,7 +146,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    color: '#0a7ea4',
+    color: '#6D28D9',
     fontWeight: 'bold',
   },
   contentContainer: {
@@ -172,7 +171,7 @@ const styles = StyleSheet.create({
     color: '#d9534f',
   },
   retryButton: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#6D28D9',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -194,9 +193,9 @@ const styles = StyleSheet.create({
   resourceCard: {
     padding: 16,
     borderRadius: 16,
-    backgroundColor: 'rgba(150, 150, 150, 0.08)',
+    backgroundColor: 'rgba(109, 40, 217, 0.05)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(150, 150, 150, 0.2)',
+    borderColor: 'rgba(109, 40, 217, 0.1)',
     marginBottom: 12,
   },
   cardHeader: {
@@ -206,7 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   categoryBadge: {
-    backgroundColor: 'rgba(10, 126, 164, 0.1)',
+    backgroundColor: 'rgba(109, 40, 217, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -214,7 +213,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#0a7ea4',
+    color: '#6D28D9',
   },
   resourceTitle: {
     fontSize: 18,
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
   },
   readMore: {
     marginTop: 12,
-    color: '#0a7ea4',
+    color: '#6D28D9',
     fontSize: 14,
     fontWeight: 'bold',
   }
