@@ -1,15 +1,24 @@
 import { API_BASE_URL } from '@/constants/Config';
 
+// ─── Core request plumbing ──────────────────────────────────────────────────
+// Every Mindora service returns raw JSON (no {success,data} envelope) and is
+// reached through the Kong gateway at API_BASE_URL, e.g. `${API_BASE_URL}/auth/login`.
+
 interface RequestOptions extends RequestInit {
   token?: string;
 }
 
-/**
- * Core request function.
- */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(
-  endpoint: string, 
-  options: RequestOptions = {}, 
+  endpoint: string,
+  options: RequestOptions = {},
   params?: Record<string, any>
 ): Promise<T> {
   const { token, ...fetchOptions } = options;
@@ -17,24 +26,20 @@ async function request<T>(
     ...(fetchOptions.headers as Record<string, string>),
   };
 
-  if (!(fetchOptions.body instanceof FormData)) {
+  if (fetchOptions.body && !(fetchOptions.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Construct URL with query parameters
   let url = `${API_BASE_URL}${endpoint}`;
   if (params) {
     const query = Object.entries(params)
-      .filter(([_, value]) => value !== undefined && value !== null)
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
       .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
       .join('&');
-    if (query) {
-      url += (url.includes('?') ? '&' : '?') + query;
-    }
+    if (query) url += `?${query}`;
   }
 
   let response: Response;
@@ -42,412 +47,231 @@ async function request<T>(
     response = await fetch(url, {
       ...fetchOptions,
       headers,
+      // Lets the refresh-token cookie ride along on same-origin/dev requests.
+      credentials: 'include',
     });
-  } catch (networkError: any) {
-    throw new Error(
-      'Unable to connect to the server. Please check your internet connection and try again.'
-    );
+  } catch {
+    throw new ApiError('Unable to reach the server. Check your connection and try again.', 0);
   }
 
-  let data: any = {};
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  let data: any = null;
+  if (contentType.includes('application/json')) {
+    data = await response.json().catch(() => null);
   }
 
   if (!response.ok) {
-    if (response.status === 401 && data?.message === 'No token provided') {
-      // Gracefully handle "No token provided" for potentially public endpoints
-      return { success: false, message: 'Authentication required' } as unknown as T;
-    }
-    const message = data?.message || `Server error (${response.status}). Please try again.`;
-    throw new Error(message);
+    const message =
+      data?.message ||
+      (typeof data?.error === 'string' ? data.error : null) ||
+      `Request failed (${response.status})`;
+    throw new ApiError(message, response.status);
   }
 
   return data as T;
 }
 
-export const api = {
+const api = {
   get: <T>(endpoint: string, token?: string, params?: Record<string, any>) =>
     request<T>(endpoint, { method: 'GET', token }, params),
-
-  post: <T>(endpoint: string, body: any, token?: string) =>
-    request<T>(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      token,
-    }),
-
-  put: <T>(endpoint: string, body: any, token?: string) =>
-    request<T>(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-      token,
-    }),
-
-  patch: <T>(endpoint: string, body: any, token?: string) =>
-    request<T>(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-      token,
-    }),
-
-  delete: <T>(endpoint: string, token?: string) =>
-    request<T>(endpoint, { method: 'DELETE', token }),
+  post: <T>(endpoint: string, body?: any, token?: string) =>
+    request<T>(endpoint, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined, token }),
+  put: <T>(endpoint: string, body?: any, token?: string) =>
+    request<T>(endpoint, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined, token }),
+  delete: <T>(endpoint: string, token?: string) => request<T>(endpoint, { method: 'DELETE', token }),
 };
 
-// ─── General ─────────────────────────────────────────────────────────────────
+// ─── Shared types ────────────────────────────────────────────────────────────
 
-export const healthCheck = () => api.get('/health');
+export type UserRole = 'PATIENT' | 'THERAPIST' | 'ADMIN';
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-export const login = async (credentials: { email: string; password: string }) => {
-  return api.post('/auth/login', credentials);
-};
-
-export const register = async (userData: {
-  fullName: string;
+export interface AuthUser {
+  userId: string;
   email: string;
-  password: string;
-  role?: 'PATIENT' | 'THERAPIST' | 'ADMIN';
-}) => {
-  return api.post('/auth/register', {
-    ...userData,
-    role: userData.role || 'PATIENT',
-  });
-};
+  role: UserRole;
+}
 
-export const refreshToken = async (token: string) => {
-  return api.post('/auth/refresh-token', { refreshToken: token });
-};
+export interface NotificationPreferences {
+  push: boolean;
+  email: boolean;
+  sms: boolean;
+}
 
-export const logout = async (token: string, refreshTokenStr: string) => {
-  return api.post('/auth/logout', { refreshToken: refreshTokenStr }, token);
-};
+export interface PatientProfile {
+  id: string;
+  userId: string;
+  userName: string | null;
+  bio: string | null;
+  timezone: string;
+  languagePreference: string;
+  notificationPreferences: NotificationPreferences;
+}
 
-export const forgotPassword = async (email: string) => {
-  return api.post('/auth/forgot-password', { email });
-};
+export interface TherapistProfile extends PatientProfile {
+  specialisation: string | null;
+  languages: string[];
+  isAcceptingPatients: boolean;
+}
 
-export const resetPassword = async (data: { token: string; password: string }) => {
-  return api.post('/auth/reset-password', data);
-};
+export type SessionType = 'VIDEO' | 'IN_PERSON' | 'CHAT';
+export type AppointmentStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
-export const verifyEmail = async (token: string) => {
-  return api.post('/auth/verify-email', { token });
-};
+export interface Appointment {
+  id: string;
+  patientId: string;
+  therapistId: string;
+  slotStart: string;
+  slotEnd: string;
+  sessionType: SessionType;
+  status: AppointmentStatus;
+  cancellationReason?: string | null;
+  rating?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
-export const changePassword = async (token: string, data: any) => {
-  return api.post('/auth/change-password', data, token);
-};
+export interface MoodEntry {
+  id: string;
+  moodScore: number;
+  emotions: string[];
+  sleepHours: number | null;
+  stressLevel: number | null;
+  energyLevel: number | null;
+  journalNote: string | null;
+  triggers: string[];
+  createdAt: string;
+}
 
-// ─── User ────────────────────────────────────────────────────────────────────
+// ─── Auth (auth-service, via Kong /auth) ────────────────────────────────────
 
-export const getProfile = async (token: string) => {
-  return api.get('/users/profile', token);
-};
+export const healthCheck = () => api.get<{ status: string; service: string }>('/auth/health');
 
-export const updateProfile = async (token: string, data: any) => {
-  return api.patch('/users/profile', data, token);
-};
+export const register = (data: { email: string; password: string; userName: string; role?: UserRole }) =>
+  api.post<{ userId: string }>('/auth/register', { ...data, role: data.role || 'PATIENT' });
 
-export const uploadAvatar = async (token: string, formData: FormData) => {
-  return request('/users/profile/avatar', {
-    method: 'POST',
-    body: formData,
+export const login = (credentials: { email: string; password: string }) =>
+  api.post<{ accessToken: string }>('/auth/login', credentials);
+
+export const refreshAccessToken = () => api.post<{ accessToken: string }>('/auth/refresh');
+
+export const logout = (token: string) => api.post<{ message: string }>('/auth/logout', undefined, token);
+
+export const forgotPassword = (email: string) =>
+  api.post<{ message: string }>('/auth/forgot-password', { email });
+
+export const resetPassword = (data: { token: string; newPassword: string }) =>
+  api.post<{ message: string }>('/auth/reset-password', data);
+
+export const getMe = (token: string) => api.get<AuthUser>('/auth/me', token);
+
+// ─── Users (user-service, via Kong /users) ──────────────────────────────────
+
+export const getMyProfile = (token: string) =>
+  api.get<{ role: UserRole; profile: PatientProfile | TherapistProfile }>('/users/me', token);
+
+export const updateMyProfile = (
+  token: string,
+  data: Partial<{ userName: string; bio: string; timezone: string; languagePreference: string }>
+) => api.put<{ role: UserRole; profile: PatientProfile | TherapistProfile }>('/users/me', data, token);
+
+export const updateFcmToken = (token: string, fcmToken: string) =>
+  api.put<{ message: string }>('/users/me/fcm-token', { fcmToken }, token);
+
+export const updateNotificationPreferences = (token: string, prefs: NotificationPreferences) =>
+  api.put<{ notificationPreferences: NotificationPreferences }>('/users/me/notification-preferences', prefs, token);
+
+export const getUserContactPreferences = (token: string, userId: string) =>
+  api.get(`/users/${userId}/preferences`, token);
+
+export const getTherapists = (
+  token: string,
+  params?: { page?: number; limit?: number; specialisation?: string; language?: string }
+) =>
+  api.get<{ therapists: TherapistProfile[]; total: number; page: number; limit: number }>(
+    '/users/therapists',
     token,
-  });
-};
+    params
+  );
 
-export const deleteAvatar = async (token: string) => {
-  return api.delete('/users/profile/avatar', token);
-};
+// ─── Appointments (appointment-service, via Kong /appointments) ─────────────
 
-export const getUserById = async (userId: string, token: string) => {
-  return api.get(`/users/${userId}`, token);
-};
+export const getTherapistAvailability = (
+  token: string,
+  therapistId: string,
+  params?: { from?: string; to?: string }
+) => api.get<{ therapistId: string; slots: { slotStart: string; slotEnd: string }[] }>(
+  `/appointments/availability/${therapistId}`,
+  token,
+  params
+);
 
-export const getUserStatistics = async (token: string) => {
-  return api.get('/users/statistics', token);
-};
+export const bookAppointment = (
+  token: string,
+  data: { therapistId: string; slotStart: string; slotEnd: string; sessionType: SessionType }
+) => api.post<Appointment>('/appointments', data, token);
 
-export const getUserDashboard = async (token: string) => {
-  return api.get('/users/dashboard', token);
-};
+export const getMyAppointments = (
+  token: string,
+  params?: { status?: AppointmentStatus; page?: number; limit?: number }
+) => api.get<{ appointments: Appointment[]; total: number; page: number; limit: number }>(
+  '/appointments/mine',
+  token,
+  params
+);
 
-export const getUserAchievements = async (token: string) => {
-  return api.get('/users/achievements', token);
-};
-
-export const getUserStreaks = async (token: string) => {
-  return api.get('/users/streaks', token);
-};
-
-// ─── Public Resources ────────────────────────────────────────────────────────
-
-export const getPublicResources = async (token?: string) => {
-  return api.get('/resources', token);
-};
-
-// ─── Therapists ──────────────────────────────────────────────────────────────
-
-export const getTherapists = async (token: string) => {
-  return api.get('/therapists', token);
-};
-
-export const getTherapistById = async (therapistId: string, token?: string) => {
-  return api.get(`/therapists/${therapistId}`, token);
-};
-
-export const updateTherapistProfile = async (token: string, therapistId: string, data: any) => {
-  return api.patch(`/therapists/${therapistId}`, data, token);
-};
-
-export const setTherapistAvailability = async (token: string, availabilityData: any) => {
-  return api.post('/therapists/availability', availabilityData, token);
-};
-
-export const uploadTherapistDocuments = async (token: string, formData: FormData) => {
-  return request('/therapists/documents', {
-    method: 'POST',
-    body: formData,
+export const getTherapistSchedule = (token: string, params?: { date?: string }) =>
+  api.get<{ appointments: Appointment[]; total: number; page: number; limit: number }>(
+    '/appointments/schedule',
     token,
-  });
-};
+    params
+  );
 
-export const getTherapistAnalytics = async (token: string) => {
-  return api.get('/therapists/analytics', token);
-};
+export const confirmAppointment = (token: string, id: string) =>
+  api.put<Appointment>(`/appointments/${id}/confirm`, undefined, token);
 
-// ─── Appointments ────────────────────────────────────────────────────────────
+export const cancelAppointment = (token: string, id: string, cancellationReason?: string) =>
+  api.put<Appointment>(`/appointments/${id}/cancel`, { cancellationReason }, token);
 
-export const getAppointments = async (token: string) => {
-  return api.get('/appointments', token);
-};
+export const completeAppointment = (token: string, id: string) =>
+  api.put<Appointment>(`/appointments/${id}/complete`, undefined, token);
 
-export const getAppointmentById = async (token: string, appointmentId: string) => {
-  return api.get(`/appointments/${appointmentId}`, token);
-};
+export const rateAppointment = (token: string, id: string, rating: number) =>
+  api.post<Appointment>(`/appointments/${id}/rate`, { rating }, token);
 
-export const bookAppointment = async (token: string, data: any) => {
-  return api.post('/appointments', data, token);
-};
+// ─── Mood tracking (mood-tracking-service, via Kong /mood) ──────────────────
 
-export const cancelAppointment = async (token: string, appointmentId: string, reason?: string) => {
-  return api.patch(`/appointments/${appointmentId}/cancel`, { reason }, token);
-};
+export const logMood = (
+  token: string,
+  data: {
+    moodScore: number;
+    emotions?: string[];
+    sleepHours?: number;
+    stressLevel?: number;
+    energyLevel?: number;
+    journalNote?: string;
+    triggers?: string[];
+  }
+) => api.post<MoodEntry>('/mood/log', data, token);
 
-export const confirmAppointment = async (token: string, appointmentId: string) => {
-  return api.patch(`/appointments/${appointmentId}/confirm`, {}, token);
-};
+export const getMoodHistory = (
+  token: string,
+  params?: { page?: number; limit?: number; startDate?: string; endDate?: string }
+) => api.get<{ entries: MoodEntry[]; total: number; page: number; limit: number }>('/mood/history', token, params);
 
-export const completeAppointment = async (token: string, appointmentId: string) => {
-  return api.patch(`/appointments/${appointmentId}/complete`, {}, token);
-};
+export const getMoodInsights = (token: string) =>
+  api.get<{
+    buckets: { bucket: string; avgMood: number; avgSleep: number; avgStress: number; avgEnergy: number }[];
+    trend: 'improving' | 'declining' | 'stable';
+    cached: boolean;
+  }>('/mood/insights', token);
 
-// ─── Mood Tracking ───────────────────────────────────────────────────────────
+export const getMoodStreak = (token: string) =>
+  api.get<{ streak: number; lastCheckedIn: string | null }>('/mood/streak', token);
 
-export const getMoodLogs = async (token: string) => {
-  return api.get('/mood-logs', token);
-};
+export const getPatientMoodReport = (token: string, userId: string) =>
+  api.get(`/mood/report/${userId}`, token);
 
-export const logMood = async (token: string, data: { level: string; notes?: string }) => {
-  return api.post('/mood-logs', data, token);
-};
+// ─── AI Integration (ai-integration-service, via Kong /ai) ──────────────────
 
-export const getMoodAnalytics = async (token: string) => {
-  return api.get('/mood-logs/analytics', token);
-};
-
-// ─── Exercises ───────────────────────────────────────────────────────────────
-
-export const getExercises = async (token: string) => {
-  return api.get('/exercises', token);
-};
-
-export const getExerciseById = async (token: string, exerciseId: string) => {
-  return api.get(`/exercises/${exerciseId}`, token);
-};
-
-export const getUserExercises = async (token: string) => {
-  return api.get('/exercises/user-exercises', token);
-};
-
-export const startExercise = async (token: string, exerciseId: string) => {
-  return api.post(`/exercises/user-exercises/${exerciseId}/start`, {}, token);
-};
-
-export const updateExerciseProgress = async (token: string, userExerciseId: string, progress: number) => {
-  return api.put(`/exercises/user-exercises/${userExerciseId}/progress`, { progress }, token);
-};
-
-export const completeExercise = async (token: string, userExerciseId: string) => {
-  return api.put(`/exercises/user-exercises/${userExerciseId}/complete`, {}, token);
-};
-
-// ─── Community (Posts & Comments) ────────────────────────────────────────────
-
-export const getPosts = async (token: string) => {
-  return api.get('/posts', token);
-};
-
-export const getPostById = async (token: string, postId: string) => {
-  return api.get(`/posts/${postId}`, token);
-};
-
-export const createPost = async (token: string, data: { content: string; isAnonymous?: boolean }) => {
-  return api.post('/posts', data, token);
-};
-
-export const uploadPostImages = async (token: string, postId: string, formData: FormData) => {
-  return request(`/posts/${postId}/images`, {
-    method: 'POST',
-    body: formData,
-    token,
-  });
-};
-
-export const updatePost = async (token: string, postId: string, data: any) => {
-  return api.patch(`/posts/${postId}`, data, token);
-};
-
-export const deletePost = async (token: string, postId: string) => {
-  return api.delete(`/posts/${postId}`, token);
-};
-
-export const likePost = async (token: string, postId: string) => {
-  return api.post(`/posts/${postId}/like`, {}, token);
-};
-
-export const unlikePost = async (token: string, postId: string) => {
-  return api.delete(`/posts/${postId}/like`, token);
-};
-
-export const flagPost = async (token: string, postId: string, reason: string) => {
-  return api.post(`/posts/${postId}/flag`, { reason }, token);
-};
-
-export const getPostComments = async (token: string, postId: string) => {
-  return api.get(`/posts/${postId}/comments`, token);
-};
-
-export const addComment = async (token: string, postId: string, content: string) => {
-  return api.post(`/posts/${postId}/comments`, { content }, token);
-};
-
-export const updateComment = async (token: string, commentId: string, content: string) => {
-  return api.patch(`/comments/${commentId}`, { content }, token);
-};
-
-export const deleteComment = async (token: string, commentId: string) => {
-  return api.delete(`/comments/${commentId}`, token);
-};
-
-export const likeComment = async (token: string, commentId: string) => {
-  return api.post(`/comments/${commentId}/like`, {}, token);
-};
-
-export const unlikeComment = async (token: string, commentId: string) => {
-  return api.delete(`/comments/${commentId}/like`, token);
-};
-
-// ─── Messages ────────────────────────────────────────────────────────────────
-
-export const sendMessage = async (token: string, data: { recipientId: string; content: string }) => {
-  return api.post('/messages', data, token);
-};
-
-export const getConversations = async (token: string) => {
-  return api.get('/messages/conversations', token);
-};
-
-export const markMessageRead = async (token: string, messageId: string) => {
-  return api.patch(`/messages/${messageId}/read`, {}, token);
-};
-
-// ─── Emergency Contacts ──────────────────────────────────────────────────────
-
-export const getEmergencyContacts = async (token?: string) => {
-  return api.get('/emergency-contacts', token);
-};
-
-export const addEmergencyContact = async (token: string, data: { name: string; phoneNumber: string; relationship: string }) => {
-  return api.post('/emergency-contacts', data, token);
-};
-
-export const deleteEmergencyContact = async (token: string, id: string) => {
-  return api.delete(`/emergency-contacts/${id}`, token);
-};
-
-// ─── Reviews ─────────────────────────────────────────────────────────────────
-
-export const createReview = async (token: string, therapistId: string, data: { rating: number; comment: string }) => {
-  return api.post(`/reviews/therapists/${therapistId}/reviews`, data, token);
-};
-
-export const getTherapistReviews = async (therapistId: string) => {
-  return api.get(`/reviews/therapists/${therapistId}/reviews`);
-};
-
-// ─── Monitoring ──────────────────────────────────────────────────────────────
-
-export const getMyMonitoring = async (token: string) => {
-  return api.get('/monitoring/me', token);
-};
-
-export const createMonitoringEntry = async (token: string, patientId: string, data: { riskLevel: string; notes?: string }) => {
-  return api.post(`/monitoring/patients/${patientId}`, data, token);
-};
-
-export const getPatientReport = async (token: string, patientId: string) => {
-  return api.get(`/monitoring/patients/${patientId}/report`, token);
-};
-
-export const getHighRiskPatients = async (token: string) => {
-  return api.get('/monitoring/high-risk', token);
-};
-
-// ─── Admin ───────────────────────────────────────────────────────────────────
-
-export const getAdminDashboard = async (token: string) => {
-  return api.get('/admin/dashboard', token);
-};
-
-export const getAdminUsers = async (token: string) => {
-  return api.get('/admin/users', token);
-};
-
-export const getAdminContentStats = async (token: string) => {
-  return api.get('/admin/content', token);
-};
-
-export const getAdminReports = async (token: string) => {
-  return api.get('/admin/reports', token);
-};
-
-export const getAdminSettings = async (token: string) => {
-  return api.get('/admin/settings', token);
-};
-
-export const approveTherapist = async (token: string, therapistId: string) => {
-  return api.patch(`/admin/therapists/${therapistId}/approve`, {}, token);
-};
-
-export const moderatePost = async (token: string, postId: string, action: 'APPROVE' | 'REJECT' | 'DELETE') => {
-  return api.patch(`/posts/${postId}/moderate`, { action }, token);
-};
-
-// ─── Notifications ───────────────────────────────────────────────────────────
-
-export const getNotifications = async (token: string) => {
-  return api.get('/notifications', token);
-};
-
-export const markNotificationRead = async (token: string, notificationId: string) => {
-  return api.patch(`/notifications/${notificationId}/read`, {}, token);
-};
-
-export const deleteNotification = async (token: string, notificationId: string) => {
-  return api.delete(`/notifications/${notificationId}`, token);
-};
+export const sendAiChatMessage = (token: string, data: { message: string; sessionId?: string }) =>
+  api.post<{ response: string; crisisLevel: number; sessionId: string }>('/ai/chat', data, token);
