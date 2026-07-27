@@ -5,6 +5,8 @@ import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { LocaleProvider, useLocale } from '@/context/LocaleContext';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
@@ -12,20 +14,18 @@ export const unstable_settings = {
 };
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const { isLoading } = useAuth();
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const { isLoading: authLoading } = useAuth();
+  const { isLoading: localeLoading, t } = useLocale();
 
-  // Show a loading screen while auth state is being restored from storage.
-  // This prevents a flash of the unauthenticated state on startup.
-  if (isLoading) {
+  // Show a loading screen while auth/locale state is being restored from storage.
+  // This prevents a flash of the unauthenticated/wrong-language state on startup.
+  if (authLoading || localeLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? '#151718' : '#fff' }}>
-        <View style={{ width: 80, height: 80, borderRadius: 24, backgroundColor: '#6D28D9', alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: '#6D28D9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 }}>
-           <ActivityIndicator size="large" color="#fff" />
-        </View>
-        <View style={{ alignItems: 'center' }}>
-          <ActivityIndicator size="small" color="#6D28D9" style={{ opacity: 0 }} /> 
-          {/* We use the indicator above inside the logo box now */}
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <View style={{ width: 80, height: 80, borderRadius: 24, backgroundColor: colors.tintSolid, alignItems: 'center', justifyContent: 'center', shadowColor: colors.tintSolid, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 }}>
+          <ActivityIndicator size="large" color="#fff" />
         </View>
       </View>
     );
@@ -35,11 +35,14 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" options={{ title: 'Not Found' }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'About Mindora' }} />
-        <Stack.Screen name="privacy-policy" options={{ title: 'Privacy Policy' }} />
-        <Stack.Screen name="auth/login" options={{ title: 'Sign In', headerBackTitle: 'Back' }} />
-        <Stack.Screen name="auth/register" options={{ title: 'Create Account', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="+not-found" options={{ title: t('stackTitles.notFound') }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: t('stackTitles.about') }} />
+        <Stack.Screen name="privacy-policy" options={{ title: t('stackTitles.privacyPolicy') }} />
+        <Stack.Screen name="resources" options={{ title: t('stackTitles.resources') }} />
+        <Stack.Screen name="auth/login" options={{ title: t('stackTitles.signIn'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="auth/register" options={{ title: t('stackTitles.createAccount'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="auth/forgot-password" options={{ title: t('stackTitles.resetPassword'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="ai-chat" options={{ title: t('stackTitles.aiAssistant'), presentation: 'modal' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
@@ -48,8 +51,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <LocaleProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </LocaleProvider>
   );
 }
