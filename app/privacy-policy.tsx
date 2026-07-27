@@ -4,26 +4,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { useLocale } from '@/context/LocaleContext';
+import { Colors, Elevation, Radius, Spacing, Typography } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// Legal content is intentionally kept English-only for now — machine-translating a
+// privacy policy risks subtly changing its legal meaning, which needs a proper legal
+// review pass, not a best-effort pass. The surrounding screen chrome (title) still
+// follows the app's locale via the root layout.
 const LAST_UPDATED = 'March 08, 2026';
 const COMPANY_EMAIL = 'privacy@mindora.app';
 const COMPANY_NAME = 'Mindora';
 
 interface SectionProps {
     title: string;
-    icon: any;
+    icon: IconSymbolName;
     children: React.ReactNode;
 }
 
 function Section({ title, icon, children }: SectionProps) {
+    const scheme = useColorScheme() ?? 'light';
+    const colors = Colors[scheme];
     return (
         <View style={styles.section}>
             <View style={styles.sectionHeader}>
-                <View style={styles.iconCircle}>
-                    <IconSymbol name={icon} size={14} color="#6D28D9" />
+                <View style={[styles.iconCircle, { backgroundColor: colors.tintSoft }]}>
+                    <IconSymbol name={icon} size={14} color={colors.tint} />
                 </View>
-                <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                <ThemedText type="defaultSemiBold" style={[styles.sectionTitle, { color: colors.tint }]}>
                     {title}
                 </ThemedText>
             </View>
@@ -36,28 +45,31 @@ function Section({ title, icon, children }: SectionProps) {
 
 export default function PrivacyPolicyScreen() {
     const insets = useSafeAreaInsets();
-    
+    const scheme = useColorScheme() ?? 'light';
+    const colors = Colors[scheme];
+    const { t } = useLocale();
+
     return (
         <>
-            <Stack.Screen options={{ title: 'Privacy Policy' }} />
+            <Stack.Screen options={{ title: t('stackTitles.privacyPolicy') }} />
             <ThemedView style={styles.container}>
                 <ScrollView
                     contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
                     showsVerticalScrollIndicator={false}>
-                    
+
                     <View style={styles.header}>
-                        <View style={styles.logoBadge}>
+                        <View style={[styles.logoBadge, { backgroundColor: colors.tintSolid, shadowColor: colors.tintSolid }]}>
                             <ThemedText style={styles.logoBadgeText}>M</ThemedText>
                         </View>
-                        <ThemedText type="title" style={styles.heading}>
+                        <ThemedText style={styles.heading}>
                             Privacy Policy
                         </ThemedText>
-                        <ThemedText style={styles.lastUpdated}>
+                        <ThemedText style={[styles.lastUpdated, { color: colors.textMuted }]}>
                             Effective as of {LAST_UPDATED}
                         </ThemedText>
                     </View>
 
-                    <ThemedText style={styles.intro}>
+                    <ThemedText style={[styles.intro, { color: colors.textMuted }]}>
                         At {COMPANY_NAME}, your privacy is our priority. This policy outlines how we handle your data with the care and security it deserves.
                     </ThemedText>
 
@@ -96,11 +108,11 @@ export default function PrivacyPolicyScreen() {
                         <ThemedText style={styles.bodyText}>
                             For any privacy inquiries, reach out to our dedicated team at:
                         </ThemedText>
-                        <ThemedText style={styles.contactEmail}>{COMPANY_EMAIL}</ThemedText>
+                        <ThemedText style={[styles.contactEmail, { color: colors.tint }]}>{COMPANY_EMAIL}</ThemedText>
                     </Section>
 
-                    <View style={styles.footer}>
-                        <ThemedText style={styles.footerText}>
+                    <View style={[styles.footer, { borderTopColor: colors.border }]}>
+                        <ThemedText style={[styles.footerText, { color: colors.textMuted }]}>
                             © {new Date().getFullYear()} {COMPANY_NAME} • Secure & Confidential
                         </ThemedText>
                     </View>
@@ -112,21 +124,21 @@ export default function PrivacyPolicyScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    scrollContent: { padding: 24 },
-    header: { alignItems: 'center', marginBottom: 32 },
-    logoBadge: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#6D28D9', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-    logoBadgeText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
-    heading: { fontSize: 24, fontWeight: 'bold' },
-    lastUpdated: { opacity: 0.4, fontSize: 12, marginTop: 4 },
-    intro: { textAlign: 'center', lineHeight: 22, opacity: 0.7, marginBottom: 40 },
-    section: { marginBottom: 32 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-    iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(109, 40, 217, 0.1)', alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { fontSize: 16, color: '#6D28D9' },
-    sectionContent: { paddingLeft: 40 },
-    bodyText: { lineHeight: 22, opacity: 0.8 },
-    bulletItem: { lineHeight: 22, opacity: 0.8, marginTop: 4 },
-    contactEmail: { color: '#6D28D9', fontWeight: 'bold', marginTop: 8 },
-    footer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 20 },
-    footerText: { opacity: 0.3, fontSize: 11 },
+    scrollContent: { padding: Spacing.xxl },
+    header: { alignItems: 'center', marginBottom: Spacing.xxxl },
+    logoBadge: { width: 44, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.lg, ...Elevation.sm },
+    logoBadgeText: { color: '#fff', fontSize: 24, fontWeight: '700' },
+    heading: { ...Typography.h1 },
+    lastUpdated: { fontSize: 12, marginTop: Spacing.xs },
+    intro: { textAlign: 'center', lineHeight: 22, marginBottom: Spacing.xxxl + Spacing.sm },
+    section: { marginBottom: Spacing.xxl },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.lg },
+    iconCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    sectionTitle: { fontSize: 16 },
+    sectionContent: { paddingLeft: Spacing.xxxl + Spacing.xs },
+    bodyText: { lineHeight: 22 },
+    bulletItem: { lineHeight: 22, marginTop: Spacing.xs },
+    contactEmail: { fontWeight: '700', marginTop: Spacing.sm },
+    footer: { marginTop: Spacing.xxxl + Spacing.sm, alignItems: 'center', borderTopWidth: 1, paddingTop: Spacing.xl },
+    footerText: { fontSize: 11 },
 });
