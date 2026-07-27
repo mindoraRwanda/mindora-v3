@@ -1,114 +1,137 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  Alert,
+  Modal,
+  ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
-  ScrollView,
-  Alert,
-  TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/context/AuthContext';
-import { getAppointments, getTherapists, bookAppointment } from '@/services/api';
+import { useLocale } from '@/context/LocaleContext';
+import {
+  ApiError,
+  Appointment,
+  AppointmentStatus,
+  SessionType,
+  TherapistProfile,
+  bookAppointment,
+  cancelAppointment,
+  getMyAppointments,
+  getTherapistAvailability,
+  getTherapists,
+} from '@/services/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
+import { Colors, Elevation, Radius, Spacing, Typography } from '@/constants/theme';
 
-interface Appointment {
-  id: string;
-  therapistId: string;
-  therapist: {
-    user: { fullName: string };
-    specialization: string;
-  };
-  dateTime: string;
-  status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
-  type: string;
+// Filter values and the SessionType enum stay in English — they're matched against
+// therapist data from the backend and sent back to it, so only the on-screen labels
+// get translated.
+const CATEGORIES = ['All', 'Anxiety', 'Depression', 'Trauma', 'Relationships', 'Stress'] as const;
+const CATEGORY_LABEL_KEYS: Record<(typeof CATEGORIES)[number], string> = {
+  All: 'appointments.categoryAll',
+  Anxiety: 'appointments.categoryAnxiety',
+  Depression: 'appointments.categoryDepression',
+  Trauma: 'appointments.categoryTrauma',
+  Relationships: 'appointments.categoryRelationships',
+  Stress: 'appointments.categoryStress',
+};
+
+const SESSION_TYPES: { value: SessionType; labelKey: string; icon: 'video.fill' | 'message.fill' | 'location.fill' }[] = [
+  { value: 'VIDEO', labelKey: 'appointments.sessionTypeVideo', icon: 'video.fill' },
+  { value: 'CHAT', labelKey: 'appointments.sessionTypeChat', icon: 'message.fill' },
+  { value: 'IN_PERSON', labelKey: 'appointments.sessionTypeInPerson', icon: 'location.fill' },
+];
+
+const STATUS_COLOR: Record<AppointmentStatus, string> = {
+  PENDING: '#F59E0B',
+  CONFIRMED: '#10B981',
+  COMPLETED: '#6D28D9',
+  CANCELLED: '#EF4444',
+};
+
+function formatSlot(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
-
-interface Therapist {
-  id: string;
-  user: { fullName: string };
-  specialization: string;
-  bio: string;
-  rating?: number;
-}
-
-const CATEGORIES = ['All', 'Psychologist', 'Psychiatrist', 'Counselor', 'Therapist'];
 
 export default function AppointmentsScreen() {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme() ?? 'light';
+  const scheme = useColorScheme() ?? 'light';
+  const colors = Colors[scheme];
+  const { user, withAuth } = useAuth();
+  const { t } = useLocale();
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [filteredTherapists, setFilteredTherapists] = useState<Therapist[]>([]);
+  const [therapists, setTherapists] = useState<TherapistProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const { user, token } = useAuth();
-  const router = useRouter();
+  const [selectedCategory, setSelectedCategory] = useState<(typeof CATEGORIES)[number]>('All');
+  const [bookingFor, setBookingFor] = useState<TherapistProfile | null>(null);
 
-  useEffect(() => {
-    if (token) loadData();
-    else setLoading(false);
-  }, [token]);
-
-  useEffect(() => {
-    filterTherapists();
-  }, [search, selectedCategory, therapists]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [apptsRes, therapistsRes]: any = await Promise.all([
-        getAppointments(token!),
-        getTherapists(token!),
-      ]);
-      if (apptsRes.success) setAppointments(apptsRes.data);
-      if (therapistsRes.success) setTherapists(therapistsRes.data);
+      const [apptsRes, therapistsRes] = await withAuth((token) =>
+        Promise.all([getMyAppointments(token, { limit: 20 }), getTherapists(token, { limit: 50 })])
+      );
+      setAppointments(apptsRes.appointments);
+      setTherapists(therapistsRes.therapists);
     } catch (err) {
-      console.error(err);
+      console.warn('Failed to load appointment data', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [withAuth]);
 
-  const filterTherapists = () => {
-    let filtered = therapists;
+  useEffect(() => {
+    if (user) loadData();
+    else setLoading(false);
+  }, [user, loadData]);
+
+  const therapistById = useMemo(() => {
+    const map = new Map<string, TherapistProfile>();
+    therapists.forEach((therapist) => map.set(therapist.userId, therapist));
+    return map;
+  }, [therapists]);
+
+  const filteredTherapists = useMemo(() => {
+    let list = therapists;
     if (selectedCategory !== 'All') {
-      filtered = filtered.filter(t => t.specialization.includes(selectedCategory));
+      list = list.filter((therapist) => therapist.specialisation?.toLowerCase().includes(selectedCategory.toLowerCase()));
     }
     if (search) {
-      filtered = filtered.filter(t => t.user?.fullName?.toLowerCase().includes(search.toLowerCase()));
+      list = list.filter((therapist) => therapist.userName?.toLowerCase().includes(search.toLowerCase()));
     }
-    setFilteredTherapists(filtered);
-  };
+    return list;
+  }, [therapists, search, selectedCategory]);
 
-  const handleBook = async (therapistId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Request Booking', 'Send an appointment request for tomorrow?', [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Confirm', 
+  const handleCancel = (appointment: Appointment) => {
+    Alert.alert(t('appointments.cancelTitle'), t('appointments.cancelConfirm'), [
+      { text: t('appointments.keepIt'), style: 'cancel' },
+      {
+        text: t('appointments.cancelSession'),
+        style: 'destructive',
         onPress: async () => {
           try {
-            const res: any = await bookAppointment(token!, { therapistId, dateTime: new Date(Date.now() + 86400000).toISOString(), type: 'VIDEO' });
-            if (res.success) {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('Success', 'Request sent!');
-              loadData();
-            }
-          } catch (err: any) {
-            Alert.alert('Error', err.message);
+            await withAuth((token) => cancelAppointment(token, appointment.id, 'Cancelled by patient'));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadData();
+          } catch (err) {
+            Alert.alert(t('common.error'), err instanceof ApiError ? err.message : t('appointments.cancelFailed'));
           }
-        }
-      }
+        },
+      },
     ]);
   };
 
@@ -116,9 +139,7 @@ export default function AppointmentsScreen() {
     return (
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <IconSymbol name="calendar" size={80} color="#6D28D9" />
-          <ThemedText type="title" style={styles.mainTitle}>Book a Session</ThemedText>
-          <ThemedText style={styles.mainSubtitle}>Sign in to connect with licensed mental health professionals.</ThemedText>
+          <EmptyState icon="calendar" title={t('appointments.signInTitle')} message={t('appointments.signInMsg')} />
         </View>
       </ThemedView>
     );
@@ -126,139 +147,276 @@ export default function AppointmentsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView 
-        stickyHeaderIndices={[1]} 
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top || 60, paddingBottom: insets.bottom + 40 }]}
-        keyboardDismissMode="on-drag"
-      >
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top || 60, paddingBottom: insets.bottom + 40 }}
+        keyboardDismissMode="on-drag">
         <View style={styles.topSection}>
-          <ThemedText type="title">Bookings</ThemedText>
+          <ThemedText type="title">{t('appointments.title')}</ThemedText>
           {appointments.length > 0 && (
-            <View style={styles.upcomingBox}>
-              <ThemedText type="defaultSemiBold" style={styles.upcomingTitle}>Upcoming Sessions</ThemedText>
-              {appointments.slice(0, 2).map(appt => (
-                <View key={appt.id} style={styles.miniCard}>
+            <View style={[styles.upcomingBox, { backgroundColor: colors.tintSolid }]}>
+              <ThemedText style={styles.upcomingTitle}>{t('appointments.yourSessions')}</ThemedText>
+              {appointments.slice(0, 3).map((appt) => (
+                <TouchableOpacity activeOpacity={0.7}
+                  key={appt.id}
+                  style={styles.miniCard}
+                  onLongPress={() => (appt.status === 'PENDING' || appt.status === 'CONFIRMED') && handleCancel(appt)}>
                   <View style={styles.miniInfo}>
-                    <ThemedText style={styles.miniName}>{appt.therapist?.user?.fullName || 'Therapist'}</ThemedText>
-                    <ThemedText style={styles.miniDate}>
-                      {new Date(appt.dateTime).toLocaleDateString()} at {new Date(appt.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <ThemedText style={styles.miniName}>
+                      {therapistById.get(appt.therapistId)?.userName || t('appointments.therapistFallback')}
                     </ThemedText>
+                    <ThemedText style={styles.miniDate}>{formatSlot(appt.slotStart)}</ThemedText>
                   </View>
-                  <View style={[styles.statusTag, styles[appt.status.toLowerCase()]]}>
-                    <ThemedText style={styles.statusLabel}>{appt.status}</ThemedText>
+                  <View style={[styles.statusTag, { backgroundColor: STATUS_COLOR[appt.status] + '30' }]}>
+                    <ThemedText style={[styles.statusLabel, { color: STATUS_COLOR[appt.status] }]}>{appt.status}</ThemedText>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
+              <ThemedText style={styles.hint}>{t('appointments.cancelHint')}</ThemedText>
             </View>
           )}
         </View>
 
-        <View style={[styles.stickyHeader, { backgroundColor: colorScheme === 'dark' ? '#000' : '#FAFAFA' }]}>
-          <View style={styles.searchBar}>
-            <IconSymbol name="paperplane.fill" size={16} color="#A0A0A0" />
-            <TextInput 
-              placeholder="Search by name or specialty..." 
-              placeholderTextColor="#A0A0A0"
-              value={search} 
-              onChangeText={setSearch} 
-              style={[styles.searchInput, { color: colorScheme === 'dark' ? '#fff' : '#000' }]}
+        <View style={styles.stickyHeader}>
+          <View style={[styles.searchBar, { backgroundColor: colors.tintSoft, borderColor: colors.border }]}>
+            <IconSymbol name="magnifyingglass" size={16} color={colors.textMuted} />
+            <TextInput
+              placeholder={t('appointments.searchPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              value={search}
+              onChangeText={setSearch}
+              style={[styles.searchInput, { color: colors.text }]}
             />
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categories}>
-            {CATEGORIES.map(cat => (
-              <TouchableOpacity 
-                key={cat} 
-                style={[styles.catChip, selectedCategory === cat && styles.activeChip]} 
+            {CATEGORIES.map((cat) => (
+              <TouchableOpacity activeOpacity={0.7}
+                key={cat}
+                style={[
+                  styles.catChip,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  selectedCategory === cat && { backgroundColor: colors.tintSolid, borderColor: colors.tintSolid },
+                ]}
                 onPress={() => {
                   Haptics.selectionAsync();
                   setSelectedCategory(cat);
-                }}
-              >
-                <ThemedText style={[styles.catText, selectedCategory === cat && styles.activeCatText]}>{cat}</ThemedText>
+                }}>
+                <ThemedText style={[styles.catText, { color: colors.textMuted }, selectedCategory === cat && { color: '#fff' }]}>
+                  {t(CATEGORY_LABEL_KEYS[cat] as any)}
+                </ThemedText>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
         <View style={styles.list}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Available Therapists</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('appointments.availableTherapists')}</ThemedText>
           {loading ? (
-            <ActivityIndicator color={Colors[colorScheme].tint} style={{ marginTop: 20 }} />
+            <ActivityIndicator color={colors.tint} style={{ marginTop: 20 }} />
           ) : filteredTherapists.length === 0 ? (
-            <ThemedText style={styles.emptyText}>No therapists found matching your criteria.</ThemedText>
+            <EmptyState icon="person.2" title={t('appointments.noTherapistsTitle')} message={t('appointments.noTherapistsMsg')} />
           ) : (
-            filteredTherapists.map(t => (
-              <TouchableOpacity key={t.id} style={styles.therapistCard} onPress={() => handleBook(t.id)}>
+            filteredTherapists.map((therapist) => (
+              <TouchableOpacity activeOpacity={0.7}
+                key={therapist.id}
+                style={[styles.therapistCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}
+                onPress={() => setBookingFor(therapist)}>
                 <View style={styles.cardTop}>
-                  <View style={styles.avatar}>
-                    <ThemedText style={styles.avatarChar}>{t.user?.fullName?.charAt(0) || 'T'}</ThemedText>
-                    <View style={styles.verifiedBadge}>
-                      <IconSymbol name="paperplane.fill" size={8} color="#fff" />
-                    </View>
+                  <View style={[styles.avatar, { backgroundColor: colors.tintSoft }]}>
+                    <ThemedText style={{ fontSize: 22, fontWeight: 'bold', color: colors.tint }}>
+                      {therapist.userName?.charAt(0) || 'T'}
+                    </ThemedText>
+                    {therapist.isAcceptingPatients && <View style={styles.verifiedBadge} />}
                   </View>
                   <View style={styles.cardInfo}>
-                    <ThemedText type="defaultSemiBold" style={styles.name}>{t.user?.fullName || 'Professional'}</ThemedText>
-                    <ThemedText style={styles.specialization}>{t.specialization}</ThemedText>
-                    <View style={styles.ratingRow}>
-                       <ThemedText style={styles.rating}>⭐ 4.9</ThemedText>
-                       <ThemedText style={styles.divider}>•</ThemedText>
-                       <ThemedText style={styles.experience}>5+ years exp.</ThemedText>
-                    </View>
+                    <ThemedText type="defaultSemiBold" style={styles.name}>{therapist.userName || t('appointments.professional')}</ThemedText>
+                    <ThemedText style={[styles.specialization, { color: colors.tint }]}>{therapist.specialisation || t('appointments.generalTherapy')}</ThemedText>
+                    {therapist.languages?.length > 0 && (
+                      <ThemedText style={[styles.languages, { color: colors.textMuted }]}>
+                        {t('appointments.speaks', { languages: therapist.languages.join(', ') })}
+                      </ThemedText>
+                    )}
                   </View>
-                  <View style={styles.bookBtn}>
-                    <IconSymbol name="calendar" size={20} color="#6D28D9" />
+                  <View style={[styles.bookBtn, { backgroundColor: colors.tintSoft }]}>
+                    <IconSymbol name="calendar" size={20} color={colors.tint} />
                   </View>
                 </View>
-                <ThemedText numberOfLines={2} style={styles.bio}>{t.bio}</ThemedText>
+                {therapist.bio ? <ThemedText numberOfLines={2} style={[styles.bio, { color: colors.textMuted }]}>{therapist.bio}</ThemedText> : null}
               </TouchableOpacity>
             ))
           )}
         </View>
       </ScrollView>
+
+      <BookingModal
+        therapist={bookingFor}
+        onClose={() => setBookingFor(null)}
+        onBooked={() => {
+          setBookingFor(null);
+          loadData();
+        }}
+      />
     </ThemedView>
   );
 }
 
-const styles: any = StyleSheet.create({
+function BookingModal({
+  therapist,
+  onClose,
+  onBooked,
+}: {
+  therapist: TherapistProfile | null;
+  onClose: () => void;
+  onBooked: () => void;
+}) {
+  const scheme = useColorScheme() ?? 'light';
+  const colors = Colors[scheme];
+  const insets = useSafeAreaInsets();
+  const { withAuth } = useAuth();
+  const { t } = useLocale();
+  const [slots, setSlots] = useState<{ slotStart: string; slotEnd: string }[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<{ slotStart: string; slotEnd: string } | null>(null);
+  const [sessionType, setSessionType] = useState<SessionType>('VIDEO');
+  const [booking, setBooking] = useState(false);
+
+  useEffect(() => {
+    if (!therapist) return;
+    setSelectedSlot(null);
+    setLoadingSlots(true);
+    const from = new Date().toISOString();
+    const to = new Date(Date.now() + 7 * 86400000).toISOString();
+    withAuth((token) => getTherapistAvailability(token, therapist.userId, { from, to }))
+      .then((res) => setSlots(res.slots))
+      .catch(() => setSlots([]))
+      .finally(() => setLoadingSlots(false));
+  }, [therapist, withAuth]);
+
+  if (!therapist) return null;
+
+  const handleConfirm = async () => {
+    if (!selectedSlot) return;
+    setBooking(true);
+    try {
+      await withAuth((token) =>
+        bookAppointment(token, {
+          therapistId: therapist.userId,
+          slotStart: selectedSlot.slotStart,
+          slotEnd: selectedSlot.slotEnd,
+          sessionType,
+        })
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(t('appointments.requestSentTitle'), t('appointments.requestSentMsg'));
+      onBooked();
+    } catch (err) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(t('appointments.bookingFailedTitle'), err instanceof ApiError ? err.message : t('appointments.bookingFailedGeneric'));
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.modalHandle} />
+          <ThemedText type="defaultSemiBold" style={styles.modalTitle}>{therapist.userName || t('appointments.therapistFallback')}</ThemedText>
+          <ThemedText style={[styles.modalSubtitle, { color: colors.textMuted }]}>{therapist.specialisation || t('appointments.generalTherapy')}</ThemedText>
+
+          <ThemedText type="defaultSemiBold" style={styles.modalSectionLabel}>{t('appointments.sessionType')}</ThemedText>
+          <View style={styles.sessionRow}>
+            {SESSION_TYPES.map((s) => (
+              <TouchableOpacity activeOpacity={0.7}
+                key={s.value}
+                style={[
+                  styles.sessionChip,
+                  { borderColor: colors.border },
+                  sessionType === s.value && { backgroundColor: colors.tintSolid, borderColor: colors.tintSolid },
+                ]}
+                onPress={() => setSessionType(s.value)}>
+                <IconSymbol name={s.icon} size={16} color={sessionType === s.value ? '#fff' : colors.textMuted} />
+                <ThemedText style={[styles.sessionLabel, sessionType === s.value ? { color: '#fff' } : { color: colors.text }]}>
+                  {t(s.labelKey as any)}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <ThemedText type="defaultSemiBold" style={styles.modalSectionLabel}>{t('appointments.availableSlots')}</ThemedText>
+          <ScrollView style={{ maxHeight: 220 }}>
+            {loadingSlots ? (
+              <ActivityIndicator color={colors.tint} style={{ marginTop: 20 }} />
+            ) : slots.length === 0 ? (
+              <ThemedText style={[styles.emptyText, { color: colors.textMuted }]}>{t('appointments.noSlots')}</ThemedText>
+            ) : (
+              slots.map((slot) => (
+                <TouchableOpacity activeOpacity={0.7}
+                  key={slot.slotStart}
+                  style={[
+                    styles.slotRow,
+                    { borderColor: colors.border },
+                    selectedSlot?.slotStart === slot.slotStart && { backgroundColor: colors.tintSoft, borderColor: colors.tint },
+                  ]}
+                  onPress={() => setSelectedSlot(slot)}>
+                  <IconSymbol name="clock" size={16} color={colors.tint} />
+                  <ThemedText style={{ marginLeft: 10 }}>{formatSlot(slot.slotStart)}</ThemedText>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <Button title={t('common.cancel')} variant="secondary" onPress={onClose} style={{ flex: 1 }} />
+            <Button title={t('appointments.confirmBooking')} onPress={handleConfirm} loading={booking} disabled={!selectedSlot} style={{ flex: 2 }} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: { },
-  topSection: { paddingHorizontal: 20, marginBottom: 10 },
-  upcomingBox: { marginTop: 20, backgroundColor: '#6D28D9', borderRadius: 24, padding: 16 },
-  upcomingTitle: { color: '#fff', fontSize: 13, marginBottom: 12, opacity: 0.8 },
-  miniCard: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 10, flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  topSection: { paddingHorizontal: Spacing.xl, marginBottom: Spacing.sm },
+  upcomingBox: { marginTop: Spacing.xl, borderRadius: Radius.xl, padding: Spacing.lg },
+  upcomingTitle: { color: '#fff', fontSize: 13, marginBottom: Spacing.md, opacity: 0.8 },
+  miniCard: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: Radius.lg, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
   miniInfo: { flex: 1 },
   miniName: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  miniDate: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 },
-  statusTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  miniDate: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 2 },
+  statusTag: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.sm - 2 },
   statusLabel: { fontSize: 9, fontWeight: 'bold' },
-  pending: { backgroundColor: '#FCD34D' },
-  confirmed: { backgroundColor: '#34D399' },
-  stickyHeader: { paddingVertical: 10 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.03)', marginHorizontal: 20, paddingHorizontal: 16, borderRadius: 16, height: 50, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 14 },
-  categories: { marginTop: 12, paddingLeft: 20 },
-  catChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, backgroundColor: '#fff', marginRight: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
-  activeChip: { backgroundColor: '#6D28D9', borderColor: '#6D28D9' },
-  catText: { fontSize: 13, fontWeight: '500', color: '#666' },
-  activeCatText: { color: '#fff' },
-  list: { paddingHorizontal: 20, marginTop: 20 },
-  sectionTitle: { fontSize: 18, marginBottom: 16 },
-  therapistCard: { backgroundColor: '#fff', borderRadius: 24, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)' },
+  hint: { color: 'rgba(255,255,255,0.6)', fontSize: 10, textAlign: 'center', marginTop: 4 },
+  stickyHeader: { paddingVertical: Spacing.sm },
+  searchBar: { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.lg, height: 50, borderWidth: 1 },
+  searchInput: { flex: 1, marginLeft: Spacing.md, fontSize: 14 },
+  categories: { marginTop: Spacing.md, paddingLeft: Spacing.xl },
+  catChip: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.md, marginRight: Spacing.sm, borderWidth: 1 },
+  catText: { ...Typography.bodySm, fontWeight: '500' },
+  list: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
+  sectionTitle: { ...Typography.h3, marginBottom: Spacing.lg },
+  therapistCard: { borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.lg, borderWidth: 1, ...Elevation.sm },
   cardTop: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  avatarChar: { fontSize: 22, fontWeight: 'bold', color: '#6D28D9' },
+  avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#34D399', width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#fff' },
-  cardInfo: { flex: 1, marginLeft: 16 },
+  cardInfo: { flex: 1, marginLeft: Spacing.lg },
   name: { fontSize: 16 },
-  specialization: { fontSize: 12, color: '#6D28D9', fontWeight: '600', marginTop: 2 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  rating: { fontSize: 12, fontWeight: 'bold' },
-  divider: { marginHorizontal: 6, opacity: 0.2 },
-  experience: { fontSize: 12, color: '#888' },
-  bookBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3E8FF', borderRadius: 12 },
-  bio: { marginTop: 12, fontSize: 13, opacity: 0.6, lineHeight: 18 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  mainTitle: { fontSize: 28, fontWeight: 'bold', marginVertical: 12 },
-  mainSubtitle: { textAlign: 'center', opacity: 0.6, lineHeight: 22 },
-  emptyText: { textAlign: 'center', marginTop: 40, opacity: 0.4, fontStyle: 'italic' },
+  specialization: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  languages: { fontSize: 11, marginTop: Spacing.xs },
+  bookBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md },
+  bio: { marginTop: Spacing.md, ...Typography.bodySm },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xxxl + Spacing.sm },
+  emptyText: { textAlign: 'center', marginTop: Spacing.xl, fontSize: 13 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: { borderTopLeftRadius: Radius.xxl, borderTopRightRadius: Radius.xxl, padding: Spacing.xl },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(150,150,150,0.4)', alignSelf: 'center', marginBottom: Spacing.lg },
+  modalTitle: { ...Typography.h2, textAlign: 'center' },
+  modalSubtitle: { fontSize: 13, textAlign: 'center', marginTop: Spacing.xs, marginBottom: Spacing.xl },
+  modalSectionLabel: { fontSize: 13, marginBottom: Spacing.md },
+  sessionRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xl },
+  sessionChip: { flex: 1, paddingVertical: Spacing.md, borderRadius: Radius.md, borderWidth: 1, alignItems: 'center' },
+  sessionLabel: { fontSize: 13, fontWeight: '600', marginTop: Spacing.xs },
+  slotRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: Radius.md + 2, borderWidth: 1, marginBottom: Spacing.sm },
+  modalActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xl },
 });
