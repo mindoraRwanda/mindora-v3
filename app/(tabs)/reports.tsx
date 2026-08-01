@@ -55,12 +55,17 @@ export default function ReportsScreen() {
   const loadData = useCallback(async () => {
     setSyncing(true);
     try {
-      const [historyRes, streakRes, insightsRes] = await withAuth((token) =>
-        Promise.all([getMoodHistory(token, { limit: 10 }), getMoodStreak(token), getMoodInsights(token)])
-      );
-      setEntries(historyRes.entries);
-      setStreak(streakRes.streak);
-      setTrend(insightsRes.trend);
+      const [historyRes, streakRes, insightsRes] = await Promise.allSettled([
+        withAuth((token) => getMoodHistory(token, { limit: 10 })),
+        withAuth((token) => getMoodStreak(token)),
+        withAuth((token) => getMoodInsights(token)),
+      ]);
+      if (historyRes.status === 'fulfilled') setEntries(historyRes.value.entries);
+      else console.warn('Failed to load mood history', historyRes.reason);
+      if (streakRes.status === 'fulfilled') setStreak(streakRes.value.streak);
+      else console.warn('Failed to load mood streak', streakRes.reason);
+      if (insightsRes.status === 'fulfilled') setTrend(insightsRes.value.trend);
+      else console.warn('Failed to load mood insights', insightsRes.reason);
     } catch (err) {
       console.warn('Failed to load mood data', err);
     } finally {
